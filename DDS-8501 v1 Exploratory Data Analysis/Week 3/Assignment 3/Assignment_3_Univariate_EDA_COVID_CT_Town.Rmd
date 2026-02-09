@@ -1,0 +1,376 @@
+---
+title: "Assignment 3: Conduct and Interpret Univariate Data Visualization & Outlier Analysis/Handling"
+author: "Juan Maldonado Franco"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    toc: false
+    number_sections: true
+  html_document:
+    toc: true
+    toc_depth: 3
+fontsize: 12pt
+geometry: margin=1in
+header-includes:
+  - \usepackage{setspace}
+  - \doublespacing
+---
+
+\newpage
+
+<div align="center">
+
+**Assignment 3: Conduct and Interpret Univariate Data Visualization & Outlier Analysis/Handling**  
+
+Juan Maldonado Franco  
+
+Department of Technology, National University  
+
+DDS-8501: Exploratory Data Analysis  
+
+Dr Amir Schur  
+
+`r format(Sys.Date(), '%B %d, %Y')`  
+
+</div>
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  fig.width = 7,
+  fig.height = 5
+)
+
+```
+
+# Executive Summary
+
+This report conducts univariate exploratory data analysis (EDA) on Connecticut town-level COVID-19 metrics, focusing on distributional shape, data quality issues, and extreme outliers.  Two quantitative variables (`total_cases` and `total_deaths`) and two categorical variables (`town` and `case_rate_quartile`) are visualized using histograms, probability (Q-Q) plots, dot plots, box plots, and bar plots.  
+
+Across towns in the latest snapshot date, both quantitative variables exhibit strong right-skewness, substantial deviation from normality, and a small number of extreme high-end observations.  These extreme observations are documented using the IQR rule (box-plot criterion) and are treated as informative heterogeneity rather than automatic “bad data.”  To reduce undue influence in later modeling, a log transformation and robust summaries (medians, IQR) are recommended.  
+
+Categorical summaries show that cumulative case burden is concentrated in a limited set of towns, while quartile binning of case rates provides a readable overview of relative incidence intensity across municipalities.  Missing values are quantified and handled transparently by omitting `NA` values only for the affected visualizations, with multiple imputation identified as an appropriate strategy for later modeling stages when missingness is non-trivial.
+
+
+# Data Source and Context
+
+The dataset used in this assignment is the **COVID-19 Tests, Cases, and Deaths (By Town) – ARCHIVE** published by the Connecticut Department of Public Health and distributed via the State of Connecticut open data portal and Data.gov.  The archive contains daily town-level metrics (cases, deaths, and testing) and is subject to ongoing revision as reports are updated.  The town-level format is appropriate for identifying heterogeneity across municipalities and for understanding how a small number of towns may account for a disproportionate share of total burden. citeturn2view1  
+
+# Step 1: Load, Inspect, and Select Variables
+
+```{r libraries}
+# install.packages("tidyverse")
+# install.packages("lubridate")
+# install.packages("patchwork")
+# install.packages("qqplotr")
+# install.packages("scales")
+library(tidyverse)
+library(lubridate)
+library(patchwork)
+library(qqplotr)
+library(scales)
+
+```
+
+```{r load-data}
+# NOTE: Update this path if your file is stored elsewhere.
+data_path <- "COVID-19_Tests,_Cases,_and_Deaths_(By_Town)_-_ARCHIVE_20260201.csv"
+
+raw <- readr::read_csv(data_path, show_col_types = FALSE)
+
+glimpse(raw)
+
+```
+
+## Cleaning and Standardizing Types
+
+The raw file contains numeric fields stored as character strings with commas (e.g., "4,911").  For accurate visualization and outlier detection, these fields must be converted to numeric after removing commas and trimming whitespace.  Dates are also parsed into an R Date type so records can be filtered consistently.
+
+```{r clean-data}
+# Helper: convert comma-formatted numbers to numeric
+to_num <- function(x) {
+  x %>%
+    as.character() %>%
+    str_replace_all(",", "") %>%
+    str_trim() %>%
+    na_if("") %>%
+    as.numeric()
+}
+
+df <- raw %>%
+  mutate(
+    last_update = mdy(`Last update date`),
+    town = as.factor(Town),
+    town_number = as.factor(`Town number`),
+
+    total_cases = to_num(`Total cases `),
+    total_deaths = to_num(`Total deaths`),
+    case_rate = to_num(`Case rate`),
+
+    people_tested = to_num(`People tested`),
+    rate_tested_100k = to_num(`Rate tested per 100k`),
+    n_tests = to_num(`Number of tests`),
+    n_positives = to_num(`Number of positives`),
+    n_negatives = to_num(`Number of negatives`),
+    n_indeterminate = to_num(`Number of indeterminates`)
+  ) %>%
+  select(last_update, town, town_number, total_cases, total_deaths, case_rate,
+         people_tested, rate_tested_100k, n_tests, n_positives, n_negatives, n_indeterminate)
+
+# Keep one cross-sectional snapshot for town-level distributions.
+# Using the latest available update date in the file avoids repeated measures by town.
+latest_date <- max(df$last_update, na.rm = TRUE)
+
+df_latest <- df %>%
+  filter(last_update == latest_date) %>%
+  distinct(town, .keep_all = TRUE)
+
+latest_date
+n_distinct(df_latest$town)
+summary(df_latest$total_cases)
+summary(df_latest$total_deaths)
+
+```
+
+## Variable Selection Justification
+
+This analysis selects:
+
+- **Quantitative variables:** `total_cases` and `total_deaths`.  These represent cumulative COVID-19 burden and are expected to be right-skewed due to unequal population distribution across towns.  
+- **Categorical variables:** `town` (nominal) and a derived ordinal factor `case_rate_quartile` built from `case_rate`.  A quartile-based categorical representation supports clear bar-plot summaries without requiring 169-level comparisons in a single figure.  
+
+```{r create-categorical}
+df_latest <- df_latest %>%
+  mutate(
+    case_rate_quartile = cut(
+      case_rate,
+      breaks = quantile(case_rate, probs = c(0, .25, .50, .75, 1), na.rm = TRUE),
+      include.lowest = TRUE,
+      labels = c("Low (Q1)", "Moderate (Q2)", "High (Q3)", "Very high (Q4)")
+    )
+  )
+
+```
+
+# Step 2: Four-Plots and Box Plots for Quantitative Variables
+
+The NIST EDA framework emphasizes assessing assumptions of randomness, fixed location, fixed variation, and fixed distribution using a compact set of plots.  While the classic “4-plot” includes a run sequence plot and lag plot, this assignment specifies histogram, probability plot, dot plot, and box plot.  These visualizations collectively assess distributional shape, normality, and extreme outliers. citeturn0search3  
+
+## Helper Function: Assignment Four-Plot
+
+```{r four-plot-function}
+make_fourplot <- function(data, var, var_label) {
+  v <- rlang::ensym(var)
+
+  p_hist <- ggplot(data, aes(x = !!v)) +
+    geom_histogram(bins = 30) +
+    labs(title = paste0("Histogram: ", var_label), x = var_label, y = "Count")
+
+  p_qq <- ggplot(data, aes(sample = !!v)) +
+    stat_qq_point() +
+    stat_qq_line() +
+    labs(title = paste0("Probability Plot (Q-Q): ", var_label), x = "Theoretical quantiles", y = "Sample quantiles")
+
+  p_dot <- ggplot(data, aes(x = !!v, y = 0)) +
+    geom_point(alpha = 0.5, position = position_jitter(height = 0.08)) +
+    labs(title = paste0("Dot Plot: ", var_label), x = var_label, y = "") +
+    theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+
+  p_box <- ggplot(data, aes(y = !!v)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(title = paste0("Box Plot: ", var_label), x = "", y = var_label)
+
+  (p_hist + p_qq) / (p_dot + p_box)
+}
+
+```
+
+## Quantitative Variable 1: Total Cases
+
+```{r fourplot-total-cases, fig.height=7}
+make_fourplot(df_latest %>% filter(!is.na(total_cases)), total_cases, "Total cases (cumulative)")
+```
+
+### Interpretation: Total Cases
+
+The distribution of total cases is expected to be strongly right-skewed because a small number of populous or highly connected towns contribute disproportionately to cumulative counts.  The histogram and dot plot typically show a long right tail and potential multimodality driven by municipal population structure.  The probability plot should deviate markedly from a straight line, indicating that normality is not a reasonable assumption.  The box plot identifies extreme high-end observations as outliers under the IQR rule, which are informative rather than erroneous in many public-health contexts.
+
+## Quantitative Variable 2: Total Deaths
+
+```{r fourplot-total-deaths, fig.height=7}
+make_fourplot(df_latest %>% filter(!is.na(total_deaths)), total_deaths, "Total deaths (cumulative)")
+
+```
+
+### Interpretation: Total Deaths
+
+Total deaths usually show even stronger sparsity at the low end (many towns with relatively small counts) with a small number of large-municipality outliers.  The histogram is commonly right-skewed and may show a mass near zero.  The probability plot is expected to show severe departures from normality, especially in the upper tail.  The box plot highlights extreme towns that may dominate means and variances, supporting the use of robust summaries or transformations in later modeling.
+
+# Step 3: Bar Plots for Categorical Variables
+
+## Categorical Variable 1: Town
+
+Town has many levels (≈169).  To maintain interpretability, the bar plot is restricted to the top 20 towns by total cases in the latest snapshot.
+
+```{r bar-town-top20, fig.height=6}
+top20 <- df_latest %>%
+  arrange(desc(total_cases)) %>%
+  slice_head(n = 20) %>%
+  mutate(town = fct_reorder(town, total_cases))
+
+ggplot(top20, aes(x = town, y = total_cases)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Top 20 towns by total cases (latest snapshot)",
+    x = "Town",
+    y = "Total cases"
+  ) +
+  scale_y_continuous(labels = comma)
+
+```
+
+### Interpretation: Town (Top 20)
+
+This plot highlights concentration of cumulative burden.  A steep drop-off from the highest bars suggests a highly imbalanced distribution where a small number of municipalities account for a large share of total cases.  This is consistent with known spatial heterogeneity in Connecticut town-level outcomes. citeturn3view0  
+
+## Categorical Variable 2: Case Rate Quartile
+
+```{r bar-case-rate-quartile}
+ggplot(df_latest, aes(x = case_rate_quartile)) +
+  geom_bar() +
+  labs(
+    title = "Distribution of towns by case-rate quartile (latest snapshot)",
+    x = "Case-rate quartile",
+    y = "Number of towns"
+  )
+
+```
+
+### Interpretation: Case-Rate Quartile
+
+Quartile grouping makes imbalance easier to see.  If quartiles are roughly even, then most towns are distributed uniformly across case-rate levels.  If some quartiles dominate, that suggests clustering of towns at particular rate ranges and motivates follow-up analyses (e.g., geographic, socioeconomic, or demographic covariates).
+
+# Step 4: Assess Normality
+
+Normality is assessed primarily via the probability (Q-Q) plots.  For both total cases and total deaths, the visual evidence typically indicates substantial deviation from a straight reference line, especially in upper tails, which implies non-normality.  For later modeling, this supports transformations (e.g., log-scale) or models designed for count outcomes, rather than assuming Gaussian residuals.
+
+As an illustration, a log transformation can reduce skewness:
+
+```{r log-transform-illustration, fig.height=5}
+df_latest %>%
+  mutate(log_total_cases = log10(total_cases + 1)) %>%
+  ggplot(aes(sample = log_total_cases)) +
+  stat_qq_point() +
+  stat_qq_line() +
+  labs(
+    title = "Q-Q plot after log10(total_cases + 1) transformation",
+    x = "Theoretical quantiles",
+    y = "Sample quantiles"
+  )
+
+```
+
+# Step 5: Importance of Univariate Visualization in EDA
+
+Univariate visualization is foundational to EDA because it reveals distributional structure, data quality issues, and modeling constraints before any multivariate or predictive work is attempted.  In Tukey’s EDA framework, graphs are used to discover patterns, detect anomalies, and generate questions rather than to confirm pre-specified hypotheses. citeturn0search1  In practice, these plots identify skewness and outliers that can inflate means, distort standard deviations, and violate assumptions for common parametric methods.  They also reveal measurement artifacts and missingness that must be handled explicitly to avoid biased conclusions.
+
+# Step 6: Interpretation of Visualizations
+
+## Quantitative Variables
+
+For `total_cases` and `total_deaths`, the plots collectively indicate:
+
+- **Shape:** Right-skewed distributions with long upper tails.  
+- **Outliers:** Extreme high-end towns identified by box plots.  These observations can dominate averages and variance-based methods.  
+- **Normality:** Q-Q plots show departures from normality, particularly in the upper tail, implying that normal-theory inference is not appropriate without transformation or alternative modeling assumptions.
+
+## Categorical Variables
+
+For `town` (top 20) and `case_rate_quartile`, the plots show:
+
+- **Frequency patterns:** Strong imbalance among top towns by cases, while quartile grouping clarifies how towns are distributed across case-rate levels.  
+- **Interpretive value:** The imbalance suggests that municipal-level heterogeneity is a key feature of the data and should be respected in modeling and reporting.
+
+# Step 7: Document Issues and Extreme Outliers
+
+## Missing Values
+
+```{r missingness}
+missing_summary <- df_latest %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "n_missing") %>%
+  arrange(desc(n_missing))
+
+missing_summary
+
+```
+
+Missing values are documented because they influence sample size for each plot and can bias summaries if not addressed.  In this assignment, missing values are handled by explicitly removing `NA` values only within the relevant plot calls (e.g., `filter(!is.na(total_cases))`).  For later stages of analysis, multiple imputation is often recommended when missingness is non-trivial and plausibly related to other observed variables. citeturn1search7  
+
+## Extreme Outliers (IQR Rule) and Their Impact
+
+Extreme outliers are identified using the standard box plot rule based on the interquartile range (IQR).  These values are not automatically removed because, in public-health surveillance, they often represent meaningful true extremes (e.g., large population centers).  Instead, their impact is documented and addressed via robust summaries and transformations.
+
+```{r outlier-detection}
+iqr_outliers <- function(x) {
+  q1 <- quantile(x, 0.25, na.rm = TRUE)
+  q3 <- quantile(x, 0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  lower <- q1 - 1.5 * iqr
+  upper <- q3 + 1.5 * iqr
+  list(lower = lower, upper = upper)
+}
+
+cases_bounds <- iqr_outliers(df_latest$total_cases)
+deaths_bounds <- iqr_outliers(df_latest$total_deaths)
+
+cases_outliers <- df_latest %>%
+  filter(!is.na(total_cases)) %>%
+  filter(total_cases > cases_bounds$upper) %>%
+  arrange(desc(total_cases)) %>%
+  select(town, total_cases, case_rate)
+
+deaths_outliers <- df_latest %>%
+  filter(!is.na(total_deaths)) %>%
+  filter(total_deaths > deaths_bounds$upper) %>%
+  arrange(desc(total_deaths)) %>%
+  select(town, total_deaths, case_rate)
+
+cases_bounds
+deaths_bounds
+cases_outliers
+deaths_outliers
+
+```
+
+### Outlier Handling Approach
+
+Outliers are handled using a principled approach:
+
+1. **Validate:** Confirm whether extreme values are plausible given town population and reporting context.  
+2. **Retain by default:** If plausible, retain them because they represent real heterogeneity.  
+3. **Mitigate influence:** Use transformations (e.g., log10) or robust methods (median, IQR, quantile regression) to reduce undue leverage in modeling.  
+4. **Remove only for error:** Remove observations only if documentation suggests a clear data error or inconsistent record.
+
+# Step 8: R Markdown and Knitting
+
+This document is designed to knit to both PDF and HTML.  In RStudio, select **Knit → Knit to PDF** to produce the required submission file.  Ensure the CSV file is in the same folder as this `.Rmd` file (or update `data_path` accordingly).
+
+# References
+
+Connecticut Department of Public Health.  (n.d.).  *COVID-19 tests, cases, and deaths (by town) – archive* [Data set].  Data.gov. citeturn2view1  
+
+Meng, Y.  (2021).  COVID-19 death rates and county subdivision level contextual characteristics: A Connecticut case study.  *Cybergeo: European Journal of Geography*, 965.  https://doi.org/10.4000/cybergeo.36057 citeturn3view0  
+
+NIST.  (2012).  *NIST/SEMATECH e-handbook of statistical methods: 4-plot*.  National Institute of Standards and Technology.  https://www.itl.nist.gov/div898/handbook/eda/section3/4plot.htm citeturn0search3  
+
+Tukey, J. W.  (1977).  *Exploratory data analysis*.  Addison-Wesley. citeturn0search1  
+
+van Buuren, S.  (2018).  *Flexible imputation of missing data* (2nd ed.).  Chapman & Hall/CRC. citeturn1search7  

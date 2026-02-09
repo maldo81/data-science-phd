@@ -1,0 +1,379 @@
+---
+title: "Assignment 2 - Assess, Filter, Clean, & Present Data"
+author: "Juan Maldonado Franco"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    df_print: paged
+  pdf_document:
+    toc: true
+    number_sections: true
+fontsize: 11pt
+geometry: margin=1in
+---
+
+<div align="center">
+
+**Assignment 2: Assess, Filter, Clean, & Present Data** </br>
+</br>
+**Juan Maldonado Franco** </br>
+**Department of Technology, National University** </br>
+**Course: DDS-8501, Exploratory Data Analysis** </br>
+**Instructor: Dr Amir Schur** </br>
+**Date: `r format(Sys.Date(), "%B %d, %Y")`**
+
+</div>
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+```{r}
+# Install only if needed:
+# install.packages(c("readr","readxl","dplyr","janitor","knitr","kableExtra","stringr","Amelia","lubridate"))
+
+library(readr)
+library(readxl)
+library(dplyr)
+library(janitor)
+library(knitr)
+library(kableExtra)
+library(stringr)
+library(Amelia)
+library(lubridate)
+```
+
+<center><h1>Executive Summary</h1></center>
+
+This report continues the Exploratory Data Analysis (EDA) process on the DOHMH New York City Restaurant Inspection Results dataset.  The objective of this week’s work is to assess missingness, remove observations and variables that exceed a missingness threshold, apply defensible imputation for remaining gaps, and verify that the resulting analytical dataset is complete.  These steps are foundational in EDA because missing values can distort descriptive statistics, bias model estimates, and produce misleading visual conclusions if they are left unexamined or handled inconsistently.  
+
+The workflow followed eight operational stages aligned with the assignment requirements.  First, the dataset was loaded into R and categorical variables were standardized so that blank values were treated as missing rather than as valid factor levels.  Second, missingness was visualized using the Amelia missing data map to make the pattern and concentration of missing values visible at a glance.  Third, row-level and column-level missingness rates were computed, and any rows or variables with twenty percent or more missing values were flagged for removal.  Fourth, high-missingness variables were removed first, followed by high-missingness observations, which is methodologically defensible because removing variables can reduce the proportion of missingness per row.  
+
+Fifth, the remaining missing values were imputed using a type-aware approach consistent with the allowed methods.  Numeric variables were imputed using the median because median imputation is more robust to skew and outliers, which are common in administrative and compliance data.  Categorical variables were imputed using the mode because it preserves valid category membership and avoids nonsensical numeric substitution.  Date variables were imputed using the median date after conversion to a numeric time representation, then returned to Date form.  Sixth, a second Amelia missingness map and a direct missing value count confirmed that the final dataset contains no missing values.  
+
+Seventh, the discussion section explains why cleaning is not merely cosmetic but instead determines the validity of EDA outputs and downstream decision making.  Eighth, the report compares deletion, mean imputation, median imputation, and mode imputation to clarify how each choice affects variance, correlation structure, and interpretability.  Overall, the result is an analysis-ready dataset suitable for subsequent descriptive analysis and modeling, with each cleaning and imputation decision documented and justified.  
+
+\newpage
+
+<center><h1>Introduction</h1></center>
+
+Exploratory Data Analysis is a disciplined approach for maximizing insight into a dataset by uncovering structure, detecting anomalies, and testing assumptions through a sequence of iterative checks.  A core principle of EDA is that data quality constraints determine the boundary of valid inference.  Missing values are one of the most common threats to that boundary because missingness can change distributions, attenuate relationships, and create artifacts that appear meaningful but are actually the result of incomplete measurement.  
+
+This assignment operationalizes missing data handling as a structured workflow.  The process begins by visualizing missingness to understand its shape and concentration.  It then applies a clear threshold rule to remove observations and variables that are too incomplete to support defensible analysis.  Finally, it imputes the remaining gaps using simple, transparent methods and verifies that the final dataset is complete.  This sequencing reflects standard EDA practice because visualization and threshold-based filtering reduce the risk of imputing in situations where the data are too sparse to support stable replacement values.  
+
+<center><h1>Analytical Environment and Dataset Acquisition</h1></center>
+
+<h2>3.1 Files Used for This Assignment</h2>
+
+This analysis uses the same dataset as Assignment 1.  
+
+- DOHMH_New_York_City_Restaurant_Inspection_Results_20260127.csv  
+
+The data dictionary is not required to execute the missingness workflow.  However, it remains useful as optional documentation for distinguishing identifiers from true quantitative measures.  The conditional download block is retained for reproducibility.  
+
+<h2>3.2 Conditional File Acquisition</h2>
+
+```{r}
+# File names (local)
+data_file <- "DOHMH_New_York_City_Restaurant_Inspection_Results_20260127.csv"
+dict_file <- "RestaurantInspectionDataDictionary_09242018.xlsx"
+
+# Source URLs (NYC Open Data)
+data_url <- "https://data.cityofnewyork.us/api/views/43nn-pn8j/rows.csv?accessType=DOWNLOAD"
+dict_url <- "https://data.cityofnewyork.us/api/views/43nn-pn8j/files/RestaurantInspectionDataDictionary_09242018.xlsx"
+
+# Conditional download: inspection results
+if (!file.exists(data_file)) {
+  message("Inspection results file not found.  Downloading...")
+  download.file(url = data_url, destfile = data_file, mode = "wb")
+} else {
+  message("Inspection results file found locally.")
+}
+
+# Optional: conditional download of data dictionary (retained for portability)
+if (!file.exists(dict_file)) {
+  message("Data dictionary file not found.  Downloading...")
+  download.file(url = dict_url, destfile = dict_file, mode = "wb")
+} else {
+  message("Data dictionary file found locally.")
+}
+```
+
+<h2>3.3 Load the Dataset</h2>
+
+```{r}
+df_raw <- read_csv(file = data_file, show_col_types = FALSE, progress = FALSE) %>%
+  clean_names()
+
+df <- df_raw
+
+dim(df)
+```
+
+<center><h1>Missing Data Visualization</h1></center>
+
+Before applying thresholds or imputation, missingness must be made visible.  In addition to explicit NA values, this dataset may contain blank strings in categorical fields.  Blank strings are not treated as missing by default, so they must be standardized to NA prior to visualization and computation.  
+
+<h2>4.1 Type Alignment for Safe Imputation</h2>
+
+To avoid invalid imputations, administrative identifiers and categorical variables are explicitly typed as factors.  This prevents accidental numeric imputation on identifiers such as CAMIS or ZIPCODE.  
+
+```{r}
+df_typed <- df %>%
+  mutate(
+    camis = as.factor(camis),
+    zipcode = as.factor(zipcode),
+    phone = as.factor(phone),
+    bin = as.factor(bin),
+    bbl = as.factor(bbl),
+    community_board = as.factor(community_board),
+    council_district = as.factor(council_district),
+    census_tract = as.factor(census_tract),
+    boro = as.factor(boro),
+    critical_flag = as.factor(critical_flag),
+    action = as.factor(action),
+    violation_code = as.factor(violation_code),
+    violation_description = as.factor(violation_description),
+    cuisine_description = as.factor(cuisine_description),
+    inspection_type = as.factor(inspection_type),
+    nta = as.factor(nta),
+    grade = factor(grade, levels = c("A","B","C","P","Z"), ordered = TRUE),
+    inspection_date = as.Date(inspection_date, format = "%m/%d/%Y"),
+    grade_date = as.Date(grade_date, format = "%m/%d/%Y"),
+    record_date = as.Date(record_date, format = "%m/%d/%Y")
+  )
+
+str(df_typed[c("camis","boro","score","grade","inspection_date")])
+```
+
+<h2>4.2 Standardize Blank Categories to Missing</h2>
+
+```{r}
+blank_to_na_chr <- function(x) {
+  x <- as.character(x)
+  x <- stringr::str_trim(x)
+  x[x == ""] <- NA_character_
+  x
+}
+
+df_step1 <- df_typed %>%
+  mutate(
+    across(where(is.character), blank_to_na_chr),
+    across(where(is.factor), ~ {
+      y <- blank_to_na_chr(.)
+      factor(y)
+    })
+  )
+```
+
+<h2>4.3 Amelia Missingness Map (Raw)</h2>
+
+```{r}
+Amelia::missmap(
+  df_step1,
+  main = "Missingness Map (Raw Dataset)",
+  col = c("yellow", "black"),
+  legend = TRUE
+)
+```
+
+<center><h1>Identify Rows and Columns with 20% or More Missing</h1></center>
+
+Rows and columns were assessed using a twenty percent missingness rule.  This threshold provides a clear and repeatable criterion for removing observations and variables that are too incomplete to support defensible descriptive analysis or stable imputation.  
+
+```{r}
+row_missing_pct <- rowMeans(is.na(df_step1))
+col_missing_pct <- colMeans(is.na(df_step1))
+
+rows_20_idx <- which(row_missing_pct >= 0.20)
+cols_20_names <- names(col_missing_pct[col_missing_pct >= 0.20])
+
+length(rows_20_idx)
+length(cols_20_names)
+```
+
+```{r}
+# Summarize the most-missing columns for reporting
+col_missing_summary <- data.frame(
+  column_name = names(col_missing_pct),
+  missing_pct = round(100 * col_missing_pct, 2),
+  n_missing = colSums(is.na(df_step1)),
+  stringsAsFactors = FALSE
+) %>%
+  arrange(desc(missing_pct))
+
+kable(
+  head(col_missing_summary, 15),
+  caption = "Top 15 Variables by Percent Missing (Before Filtering)."
+) %>%
+  kable_styling(full_width = FALSE)
+```
+
+<center><h1>Handling Missing Data by Threshold Removal</h1></center>
+
+The dataset was filtered using the threshold rule.  Columns at or above twenty percent missingness were removed first.  Rows at or above twenty percent missingness were removed second.  This ordering is important because dropping high-missingness variables can reduce the missingness proportion for many rows.  
+
+```{r}
+df_step3 <- df_step1
+
+# Remove columns with >= 20% missing
+if (length(cols_20_names) > 0) {
+  df_step3 <- df_step3 %>% select(-all_of(cols_20_names))
+}
+
+# Recompute row missingness after column removal
+row_missing_pct_step3 <- rowMeans(is.na(df_step3))
+rows_20_idx_step3 <- which(row_missing_pct_step3 >= 0.20)
+
+# Remove rows with >= 20% missing
+if (length(rows_20_idx_step3) > 0) {
+  df_step3 <- df_step3 %>% slice(-rows_20_idx_step3)
+}
+
+dim(df_step3)
+```
+
+```{r}
+# Report what was removed
+removed_summary <- data.frame(
+  item = c("Columns removed (>= 20% missing)", "Rows removed (>= 20% missing after column removal)"),
+  count = c(length(cols_20_names), length(rows_20_idx_step3)),
+  stringsAsFactors = FALSE
+)
+
+kable(removed_summary, caption = "Threshold-Based Removals Applied to the Dataset.") %>%
+  kable_styling(full_width = FALSE)
+```
+
+<center><h1>Imputation of Remaining Missing Values</h1></center>
+
+After threshold removals, remaining missing values were imputed using simple, transparent methods.  Numeric variables were imputed using the median.  Median imputation is robust to skew and outliers, and it preserves a realistic central value when extreme values are present.  Categorical variables were imputed using the mode because it maintains valid category membership and avoids introducing invalid values.  Date variables were imputed using the median date, which is defensible when missingness is limited and the goal is to preserve a realistic temporal center without introducing extreme dates.  
+
+<h2>6.1 Helper Functions</h2>
+
+```{r}
+mode_value <- function(x) {
+  x_no_na <- x[!is.na(x)]
+  if (length(x_no_na) == 0) return(NA)
+  ux <- unique(x_no_na)
+  ux[which.max(tabulate(match(x_no_na, ux)))]
+}
+
+impute_median_numeric <- function(x) {
+  x[is.na(x)] <- median(x, na.rm = TRUE)
+  x
+}
+
+impute_median_date <- function(x) {
+  # Convert Date to numeric (days since origin), impute median, convert back
+  xn <- as.numeric(x)
+  xn[is.na(xn)] <- median(xn, na.rm = TRUE)
+  as.Date(xn, origin = "1970-01-01")
+}
+
+impute_mode_factor <- function(x) {
+  m <- mode_value(x)
+  x[is.na(x)] <- m
+  x
+}
+```
+
+<h2>6.2 Apply Imputation</h2>
+
+```{r}
+df_step4 <- df_step3
+
+# Identify variable groups
+num_cols <- names(df_step4)[sapply(df_step4, is.numeric)]
+date_cols <- names(df_step4)[sapply(df_step4, inherits, what = "Date")]
+factor_cols <- names(df_step4)[sapply(df_step4, is.factor)]
+
+# Impute numeric columns with median
+if (length(num_cols) > 0) {
+  df_step4 <- df_step4 %>%
+    mutate(across(all_of(num_cols), impute_median_numeric))
+}
+
+# Impute Date columns with median date
+if (length(date_cols) > 0) {
+  df_step4 <- df_step4 %>%
+    mutate(across(all_of(date_cols), impute_median_date))
+}
+
+# Impute factor columns with mode
+if (length(factor_cols) > 0) {
+  df_step4 <- df_step4 %>%
+    mutate(across(all_of(factor_cols), impute_mode_factor))
+}
+
+# Final cleaned dataset
+df_final <- df_step4
+
+sum(is.na(df_final))
+```
+
+<center><h1>Verify Data Cleaning</h1></center>
+
+The dataset was re-visualized using the same Amelia missingness map used in Step 1.  The goal of this step is to verify that threshold filtering and imputation produced a complete dataset, and that no missingness remains hidden in categorical variables or derived date fields.  
+
+```{r}
+Amelia::missmap(
+  df_final,
+  main = "Missingness Map (After Filtering and Imputation)",
+  col = c("yellow", "black"),
+  legend = TRUE
+)
+```
+
+```{r}
+# Confirm completeness
+total_missing <- sum(is.na(df_final))
+kable(
+  data.frame(metric = "Total missing values in final dataset", value = total_missing),
+  caption = "Verification of Missingness After Cleaning."
+) %>%
+  kable_styling(full_width = FALSE)
+```
+
+<center><h1>Discussion: Why Data Cleaning Matters in EDA</h1></center>
+
+Data cleaning is one of the most consequential parts of Exploratory Data Analysis because EDA is fundamentally a process of discovery.  If the dataset contains large pockets of missingness, inconsistent encodings, or blank categorical values that masquerade as legitimate categories, then exploratory summaries and visualizations can become distorted.  This distortion is not trivial.  It affects the shape of distributions, the apparent frequency of categories, and the stability of relationships between variables.  
+
+The quality of the data determines whether an analyst is observing real structure or measurement artifact.  A histogram of an inspection score can shift if missing values are deleted in a nonrandom way.  A bar chart of cuisine categories can become misleading if blank values are treated as a valid cuisine rather than as missing information.  In applied decision environments, these distortions become operational risks.  If the cleaned dataset is used to monitor compliance patterns or to allocate inspection resources, then biased summaries can cause misallocation and weaken the validity of the decisions derived from the analysis.  
+
+Cleaning also has a direct relationship to reproducibility.  EDA is not simply about producing attractive figures.  It is about documenting how the dataset was transformed into an analytical object, and ensuring that another analyst could reproduce the same cleaned dataset and arrive at the same conclusions.  For that reason, missingness visualization, threshold rules, and imputation choices must be explicit, consistent, and defensible.  
+
+<center><h1>Effects of Imputation Methods</h1></center>
+
+Different missing data strategies can meaningfully change a dataset.  Deletion and imputation represent tradeoffs between bias, variance, and interpretability.  
+
+Deletion of rows or columns is simple and transparent, but it reduces sample size and can bias results if missingness is not completely random.  Row deletion is especially costly when many rows have small amounts of missingness spread across variables.  Column deletion can remove important predictors or outcomes, and it can narrow the analytical scope of the dataset.  The twenty percent rule used here provides a balance by removing only those rows and variables that are too incomplete to support stable analysis.  
+
+Mean imputation is commonly used for numeric data, but it can artificially shrink variance and weaken correlations because it pulls missing observations toward a single central value.  If the distribution is skewed or contains outliers, mean imputation can also produce an imputed value that is not representative of a typical observation.  Median imputation addresses this risk by using a central value that is robust to extreme observations.  Median imputation still reduces variance to some extent because it introduces repeated central values, but it is generally less sensitive to skew and outliers than mean substitution.  
+
+Mode imputation is the most direct approach for categorical variables because it preserves valid category membership.  Its primary disadvantage is that it can inflate the most common category and reduce the apparent diversity of categories, especially when missingness is not small.  For that reason, categorical imputation should be combined with threshold-based removals so that imputation is used only when the remaining missingness is limited.  
+
+More advanced methods such as multiple imputation can preserve uncertainty more effectively by generating several plausible completed datasets rather than a single filled dataset.  In practice, multiple imputation is often preferred for inference because it better reflects uncertainty due to missingness.  In this assignment, the final imputation method was intentionally limited to mean, median, or mode to satisfy the required procedure, while Amelia was used to visualize missingness patterns and verify completeness.  
+
+<center><h1>Conclusion</h1></center>
+
+This assignment demonstrates a complete missing data workflow within an EDA context.  Missingness was made visible using Amelia missing data maps, then controlled using a clear threshold rule for removing rows and columns with substantial incompleteness.  Remaining missing values were imputed using a defensible, type-aware strategy that respects variable meaning and measurement constraints.  A post-cleaning missingness map confirmed that the final dataset is complete and ready for subsequent descriptive analysis and modeling.  
+
+<center><h1>References</h1></center>
+
+Little, R. J. A., & Rubin, D. B. (2019).  *Statistical analysis with missing data* (3rd ed.).  Wiley.  
+
+National Institute of Standards and Technology. (2012).  *NIST/SEMATECH e-Handbook of Statistical Methods: Exploratory data analysis (EDA).*  https://www.itl.nist.gov/div898/handbook/eda/  
+
+Rubin, D. B. (1987).  *Multiple imputation for nonresponse in surveys.*  Wiley.  https://doi.org/10.1002/9780470316696  
+
+Wong, M. R., McKelvey, W., Ito, K., Schiff, C., Jacobson, J. B., & Kass, D. (2015).  Impact of a letter-grade program on restaurant sanitary conditions and diner behavior in New York City.  *American Journal of Public Health, 105*(3), e81-e87.  https://doi.org/10.2105/AJPH.2014.302404  

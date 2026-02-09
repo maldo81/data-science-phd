@@ -1,0 +1,1546 @@
+---
+title: "Descriptive_Data"
+author: "I.Tsapara"
+date: "2025-04-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Already complete Code
+
+As we move on from week to week and task to task, the code that you have already completed, will stay on the template but will not run, this is possible by adding eval=FALSE to the corresponding code chunk.
+Note that the libraries need to be linked to this program as well.
+
+
+```{r install}
+
+# Install and load necessary libraries
+#install.packages("ggplot2") # Install ggplot2 for plotting, if you have already installed the packages, comment this out by enterring a # in front of this command
+#install.packages("scales")  # Install scales for formatting
+#install.packages("moments") # Install moments for skewness and kurtosis
+#install.packages("dplyr")
+#install.packages("kableExtra")
+library(ggplot2)            # Load ggplot2 library
+library(scales)             # Load scales library
+library(moments)
+library(dplyr)
+
+```
+
+
+## Setting up your directory in your computer.
+
+This needs to be addressed here.
+
+
+
+```{r Dir}
+# Check the current working directory
+getwd()
+
+# in the next line, change the directory to the place where you saved the
+# data file, if you prefer you can save your data.csv file in the directory
+# that command 7 indicated.
+# for example your next line should like something similar to this: setwd("C:/Users/tsapara/Documents")
+
+# Set the working directory to where the data file is located
+# This ensures the program can access the file correctly
+
+# I am using an rstudio project so I don't need the setwd().
+# setwd("C:/Users/ITsapara/Downloads")
+
+### Choose an already existing directory in your computer.
+```
+
+## Setting up your personalized data
+
+```{r Read, eval=FALSE}
+# Read the CSV file
+# The header parameter ensures column names are correctly read
+# sep defines the delimiter (comma in this case)
+# stringsAsFactors prevents automatic conversion of strings to factors
+df <- read.csv("data.csv", header = TRUE, sep = ",", stringsAsFactors = TRUE)
+
+##########################################################
+# Define variables A and B based on your student ID
+# A represents the first 3 digits, B represents the last 3 digits
+A <- 967
+B <- 612
+Randomizer <- A + B # Randomizer ensures a consistent seed value for reproducibility
+Randomizer
+
+
+# Generate a random sample of 500 rows from the dataset
+set.seed(Randomizer) # Set the seed for reproducibility
+sample_size <- 500
+df <- df[sample(nrow(df), sample_size, replace = TRUE), ] # Sample the dataset
+
+write.csv(df, file = "my_data.csv", row.names = FALSE) # this command may take some time to run once it is done, it will create the desired data file locally in your directory
+
+
+```
+
+
+## Knit your file
+
+As practice, you may want now to knit your file in an html. To do this, you should click on the knit button on the top panel, and wait for the rendering file. The HTML will open once it is done for you to review.
+
+It is recommended to practice with RMD and download and review the following cheatsheets: https://rmarkdown.rstudio.com/lesson-15.HTML
+
+In addition, you may want to alter some of the editor components and re-knit your file to gain some knowledge and understanding of RMD.
+For a complete tutorial, visit: https://rmarkdown.rstudio.com/lesson-2.html
+
+
+```{r ReadYourFile}
+
+df_raw <- read.csv("my_data.csv", header = TRUE, sep = ",", stringsAsFactors = TRUE)
+```
+
+
+## Cleaning up your data
+
+
+***Step 0. Now that you read  the file, you want to learn few information about your data***
+
+The following commands will not be explained here, do your research, review your csv file and answer the questions related with this part of your code.
+
+
+```{r Explore}
+
+# Basic exploratory commands
+nrow(df_raw)       # Number of rows in the dataset
+length(df_raw)     # Number of columns (or variables) in the dataset
+str(df_raw)        # Structure of the dataset (data types and a preview)
+summary(df_raw)    # Summary statistics for each column
+
+```
+
+
+## Your Turn
+
+Please answer the following questions, by typing information after the question.
+
+***Question 1***
+
+**What type of variables does your file include?**
+
+***Answer 1:***
+
+
+
+***Question 2***
+
+**Specific data types?**
+
+***Answer 2:***
+
+
+
+
+***Question 3***
+
+**Are they read properly?**
+
+***Answer 3:***
+
+
+
+***Question 4***
+
+**Are there any issues ?**
+
+***Answer 4:***
+
+
+
+***Question 5***
+
+**Does your file includes both NAs and blanks?**
+
+***Answer 5:***
+
+
+
+***Question 6***
+
+**How many NAs do you have and **
+
+***Answer 6:***
+
+
+
+***Question 7***
+
+**How many blanks? **
+
+***Answer 7:***
+
+
+
+
+## Cleanup Continued
+
+***Step 1:  Handling both blanks and NAs is not simple so first we want to eliminate some of those, let's eliminate the blanks and change them to NAs***
+
+
+```{r Cleanup}
+
+
+#
+# Step 1:  # Handling both blanks and NAs is not simple so first we want to eliminate
+# some of those, let's eliminate the blanks and change them to NAs
+#
+
+
+# Replace blanks with NAs across the dataset
+# This ensures that blank values are consistently treated as missing data
+df_eda <- df_raw
+df_eda[df_eda == ""] <- NA
+
+# Convert specific columns to factors
+# This step ensures categorical variables are treated correctly after replacing blanks
+factor_columns <- c("Gender", "Education", "Rating", "MaritalStatus", "Category", 
+                    "Employment", "Color", "Hobby", "Location")
+
+# Only keep columns that actually exist in df (prevents knit failure)
+factor_columns_present <- intersect(factor_columns, names(df_eda))
+
+# Convert only existing columns to factor
+df_eda[factor_columns_present] <- lapply(df_eda[factor_columns_present], function(col) as.factor(as.character(col)))
+
+```
+
+
+## Cleanup Continued
+
+***Step 2: Count NAs in the entire dataset***
+
+
+```{r CheackNAs}
+
+
+#
+# Step 2: Count NAs in the entire dataset
+
+
+# Count the total number of NAs in the dataset
+total_nas <- sum(is.na(df_eda))
+total_nas # Print the total number of missing values
+
+```
+
+## Your Turn
+
+Please answer the following questions, by typing information after the question.
+
+***Question 8***
+
+**Explain what the printed number is, what is the information that relays and how can you use it in your analysis?**
+
+***Answer 8:***
+
+
+
+
+
+## Clean Up Continued
+
+***Step 3: Count rows with NAs.***
+
+
+```{r NARows }
+
+#
+# Step 3: Count rows with NAs
+#
+
+# Count rows with at least one NA
+rows_with_nas <- sum(rowSums(is.na(df_eda)) > 0)
+Percent_row_NA <- percent(rows_with_nas / nrow(df_eda)) # Percentage of rows with NAs
+rows_with_nas
+Percent_row_NA
+
+```
+
+## Your Turn
+
+***Question 9***
+
+**How large is the proportion of the rows with NAs, we can drop up to 5%?**
+
+***Answer 9:***
+
+
+
+***Question 10***
+
+**Do you think that would be wise to drop the above percent? **
+
+***Answer 10:***
+
+
+
+***Question 11***
+
+**How this will affect your dataset? **
+
+***Answer 11:***
+
+
+
+
+## CleanUp Continued
+
+***Step 4: Count columns with NAs***
+
+
+```{r NAColumns}
+
+
+
+#  
+# Step 4: Count columns with NAs
+
+# Count columns with at least one NA
+cols_with_nas <- sum(colSums(is.na(df_eda)) > 0)
+Percent_col_NA <- percent(cols_with_nas / length(df_eda)) # Percentage of columns with NAs
+cols_with_nas
+Percent_col_NA
+
+```
+
+## Your Turn
+
+***Question 12***
+
+**How large is the proportion of the cols with NAs, we never want to drop entire columnes as this would mean that we will loose variables and associations but do you think that would be wise to drop the above percent?**
+
+***Answer 12:***
+
+
+
+***Question 13***
+
+**How this will affect your dataset? **
+
+***Answer 13:***
+
+
+
+
+
+## Imputation
+
+***Step 5: Replace NAs with appropriate values (mean for numeric and integer,mode for factor, "NA" for character)***
+
+In later weeks we will learn how to replace the NAs properly based on the descriptive statistics and you will discuss this code.For now, you can assume that by setting the mean of the variable for numeric and mode for categorical it is correct - this is not always the case of course but the code will become much more complicated in that case.
+
+
+```{r Imputation}
+
+# This section has been commented out we need to reorganize columns and do other cleaning steps before the data is usable
+
+# 
+# Step 5: Replace NAs with appropriate values (mean for numeric and integer,
+# mode for factor, "NA" for character)
+# In later weeks we will learn how to replace the NAs properly based on the
+# descriptive statistics and you will discuss this code.
+# for now, you can assume that by setting the mean of the variable for numeric
+# and mode for categorical it is correct - this is not always the case of course
+# but the code will become much more complicated in that case.
+
+
+# Replace NAs with appropriate values
+# Numeric: Replace with the mean if sufficient data is available
+# Categorical: Replace with the mode (most common value)
+# Character: Replace with the string "NA"
+# df <- lapply(df, function(col) {
+#   if (is.numeric(col) || is.integer(col)) { # Numeric or integer columns
+#     if (sum(!is.na(col)) > 10) {
+#       col[is.na(col)] <- mean(col, na.rm = TRUE) # Replace with mean
+#     } else {
+#       col[is.na(col)] <- approx(seq_along(col), col, n = length(col))[["y"]][is.na(col)] # Interpolation
+#     }
+#   } else if (is.factor(col)) { # Factor columns
+#     mode_val <- names(sort(-table(col)))[1] # Mode (most common value)
+#     col[is.na(col)] <- mode_val
+#   } else if (is.character(col)) { # Character columns
+#     col[is.na(col)] <- "NA" # Replace with "NA"
+#   }
+#   return(col) # Return the modified column
+# })
+
+# df <- as.data.frame(df) # Convert the list back to a dataframe
+
+
+#
+# following the above method to impute, has now changed some of the statistics
+
+
+# Check the updated dataset and ensure no remaining NAs
+summary(df_eda)
+
+```
+
+
+```{r Step5_SchemaAndTypes}
+
+###############################################################################
+# STEP 5 (REVISED): Structural Data Preparation for Exploratory Analysis
+#
+# Goal: Prepare an analysis-ready dataset for EDA WITHOUT imputing missing values.
+# We preserve NA values so descriptive statistics and plots reflect the true data.
+#
+# Critical discovery:
+# The original source data has a "Rating" value (A/B/C) in the rows, but the
+# header used to generate my_data.csv did not include a Rating column name.
+# As a result, my_data.csv was saved with 15 columns and values shifted left.
+#
+# This step is designed to be idempotent (safe to run multiple times).
+###############################################################################
+
+# ---- Always reset to the same starting point so this chunk is re-runnable ----
+df_eda <- df_raw
+df_eda[df_eda == ""] <- NA
+
+###############################################################################
+# STEP 5A: Schema repair
+###############################################################################
+
+nc <- ncol(df_eda)
+message("Step 5A: df_eda has ", nc, " columns before schema repair.")
+
+if (nc == 15) {
+  # Repair 15-column shifted schema -> rebuild into correct 16-column schema
+  df_before_schema_fix <- df_eda
+  
+  df_eda <- data.frame(
+    ID            = seq_len(nrow(df_before_schema_fix)),
+    Gender        = df_before_schema_fix[[1]],
+    Age           = df_before_schema_fix[[2]],
+    Height        = df_before_schema_fix[[3]],
+    Weight        = df_before_schema_fix[[4]],
+    Education     = df_before_schema_fix[[5]],
+    Income        = df_before_schema_fix[[6]],
+    MaritalStatus = df_before_schema_fix[[7]],
+    Employment    = df_before_schema_fix[[8]],
+    Score         = df_before_schema_fix[[9]],
+    Rating        = df_before_schema_fix[[10]],
+    Category      = df_before_schema_fix[[11]],
+    Color         = df_before_schema_fix[[12]],
+    Hobby         = df_before_schema_fix[[13]],
+    Happiness     = df_before_schema_fix[[14]],
+    Location      = df_before_schema_fix[[15]],
+    stringsAsFactors = FALSE
+  )
+  
+  message("Schema repaired: df_eda now has ", ncol(df_eda), " columns.")
+
+} else if (nc == 16) {
+  # Already repaired: just ensure names are correct
+  names(df_eda) <- c("ID","Gender","Age","Height","Weight","Education","Income",
+                     "MaritalStatus","Employment","Score","Rating","Category",
+                     "Color","Hobby","Happiness","Location")
+  # If ID isn't numeric, rebuild it
+  if (!all(grepl("^\\d+$", as.character(df_eda$ID)) | is.na(df_eda$ID))) {
+    df_eda$ID <- seq_len(nrow(df_eda))
+  }
+  message("Schema already 16 columns; no rebuild needed.")
+  
+} else {
+  stop(paste("Unexpected number of columns:", nc, 
+             ". Paste ncol(df_raw), ncol(df_eda), names(df_eda), head(df_eda,2)."))
+}
+
+# Sanity checks
+print(table(df_eda$Gender, useNA = "ifany"))
+print(table(df_eda$Rating, useNA = "ifany"))
+print(table(df_eda$Category, useNA = "ifany"))
+print(table(df_eda$Location, useNA = "ifany"))
+
+###############################################################################
+# STEP 5B: Assign correct data types (after schema repair)
+###############################################################################
+
+# Numeric conversions (coerce through character to avoid factor->numeric errors)
+numeric_vars <- c("Age","Height","Weight","Income","Score","Happiness")
+df_eda[numeric_vars] <- lapply(df_eda[numeric_vars], function(x) as.numeric(as.character(x)))
+
+# Categorical cleanup: convert to character first (do NOT factor yet)
+categorical_vars <- c("Gender","Education","MaritalStatus","Employment",
+                      "Rating","Category","Color","Hobby","Location")
+
+df_eda[categorical_vars] <- lapply(df_eda[categorical_vars], function(x) trimws(as.character(x)))
+
+###############################################################################
+# STEP 5C: Detect & inspect bad rows (row-level anomalies)
+###############################################################################
+
+valid_gender   <- c("Male","Female","Other")
+valid_rating   <- c("A","B","C")
+valid_category <- c("Sports","Music","Art")
+valid_location <- c("City","Rural","Suburb")
+valid_marital  <- c("Single","Married")
+valid_employ   <- c("Employed","Unemployed")
+
+bad_rows <- which(
+  !(df_eda$Gender %in% valid_gender | is.na(df_eda$Gender)) |
+  !(df_eda$Rating %in% valid_rating | is.na(df_eda$Rating)) |
+  !(df_eda$Category %in% valid_category | is.na(df_eda$Category)) |
+  !(df_eda$Location %in% valid_location | is.na(df_eda$Location)) |
+  !(df_eda$MaritalStatus %in% valid_marital | is.na(df_eda$MaritalStatus)) |
+  !(df_eda$Employment %in% valid_employ | is.na(df_eda$Employment))
+)
+
+message("Bad rows detected: ", length(bad_rows))
+if (length(bad_rows) > 0) {
+  print(df_eda[bad_rows, c("ID","Gender","MaritalStatus","Employment","Score","Rating","Category","Happiness","Location")])
+}
+
+###############################################################################
+# STEP 5D: Row-level repair for localized misalignment
+
+###############################################################################
+
+if (length(bad_rows) > 0) {
+  for (i in bad_rows) {
+
+    # 1) Employment contains marital status; move back to MaritalStatus
+    if ((is.na(df_eda$MaritalStatus[i]) || df_eda$MaritalStatus[i] == "") &&
+        as.character(df_eda$Employment[i]) %in% valid_marital) {
+      df_eda$MaritalStatus[i] <- as.character(df_eda$Employment[i])
+      df_eda$Employment[i] <- NA
+    }
+
+    # 2) Rating contains numeric score; move to Score
+    if ((is.na(df_eda$Score[i]) || df_eda$Score[i] == "") &&
+        grepl("^[0-9]+(\\.[0-9]+)?$", as.character(df_eda$Rating[i]))) {
+      df_eda$Score[i] <- as.numeric(as.character(df_eda$Rating[i]))
+      df_eda$Rating[i] <- NA
+    }
+
+    # 3) Category contains rating code; move to Rating
+    if ((is.na(df_eda$Rating[i]) || df_eda$Rating[i] == "") &&
+        as.character(df_eda$Category[i]) %in% valid_rating) {
+      df_eda$Rating[i] <- as.character(df_eda$Category[i])
+      df_eda$Category[i] <- NA
+    }
+
+    # 4) Location contains numeric happiness; move to Happiness
+    if ((is.na(df_eda$Happiness[i]) || df_eda$Happiness[i] == "") &&
+        grepl("^[0-9]+(\\.[0-9]+)?$", as.character(df_eda$Location[i]))) {
+      df_eda$Happiness[i] <- as.numeric(as.character(df_eda$Location[i]))
+      df_eda$Location[i] <- NA
+    }
+    
+    # 5) If Color contains a Category value, shift Color -> Category
+    #    and if Hobby contains a Color value, shift Hobby -> Color.
+    #    This fixes a tail-end misalignment observed in rare rows (e.g., ID 38).
+    if ((is.na(df_eda$Category[i]) || df_eda$Category[i] == "") &&
+        as.character(df_eda$Color[i]) %in% valid_category) {
+
+      df_eda$Category[i] <- as.character(df_eda$Color[i])
+      df_eda$Color[i] <- NA
+    }
+
+    if ((is.na(df_eda$Color[i]) || df_eda$Color[i] == "") &&
+        as.character(df_eda$Hobby[i]) %in% c("Blue","Green","Red")) {
+
+      df_eda$Color[i] <- as.character(df_eda$Hobby[i])
+      df_eda$Hobby[i] <- NA
+    }
+  }
+}
+
+###############################################################################
+# STEP 5E: Finalize categorical data types AFTER repairs
+#
+# This step:
+# 1) Removes fully empty rows
+# 2) Converts categorical variables to factors
+# 3) Drops unused factor levels
+###############################################################################
+
+# 1) Remove fully empty rows (all NA except ID)
+non_id_cols <- setdiff(names(df_eda), "ID")
+df_eda <- df_eda[rowSums(is.na(df_eda[non_id_cols])) < length(non_id_cols), ]
+
+# 2) Define categorical variables (only those present)
+categorical_vars <- c(
+  "Gender","Education","MaritalStatus","Employment",
+  "Rating","Category","Color","Hobby","Location"
+)
+categorical_vars <- intersect(categorical_vars, names(df_eda))
+
+# 3) Convert categoricals to factor (force via character)
+df_eda[categorical_vars] <- lapply(df_eda[categorical_vars], function(x) {
+  as.factor(trimws(as.character(x)))
+})
+
+# 4) Drop unused factor levels (safe now — all are factors)
+df_eda[categorical_vars] <- lapply(df_eda[categorical_vars], droplevels)
+
+# Optional sanity checks (recommended once)
+table(df_eda$Employment, useNA = "ifany")
+table(df_eda$Rating, useNA = "ifany")
+table(df_eda$Category, useNA = "ifany")
+table(df_eda$Location, useNA = "ifany")
+###############################################################################
+# STEP 5F: Final Validations
+###############################################################################
+
+# Final validation
+str(df_eda)
+summary(df_eda)
+
+# Final sanity check for issue tables
+table(df_eda$Gender, useNA="ifany")
+table(df_eda$Rating, useNA="ifany")
+table(df_eda$Category, useNA="ifany")
+table(df_eda$Employment, useNA = "ifany")
+table(df_eda$Location, useNA="ifany")
+
+
+df_eda[df_eda$ID == 38, c("ID","MaritalStatus","Employment","Score","Rating","Category","Happiness","Location")]
+nrow(df_eda)
+
+```
+
+## Your Turn
+
+**Essay Question**
+
+Run summary(df) and compare with the previous statistics. Do you observe any undesired changes? Explain in detail. Are there any more NA's in your file?What is the information that is printed by the summary? How can this be interpreted? what are your observations? Verify the effects of imputation, and explain in detail. Compare the updated summary with the earlier statistics and note changes. Explain everything that you obsevrve.
+
+**Answer**
+
+## Descriptive Statistics
+  
+***Step 6: Create descriptive statistics for all variables***
+
+We run all the descriptive statistics for all the numeric variables
+ 
+```{r}
+################################################################### 
+# 
+# Step 6: Create descriptive statistics for all variables
+# We run all the descriptive statistics for all the numeric variables
+#
+###################################################################
+# Initialize a function to compute descriptive statistics
+compute_stats <- function(column, name) {
+  if (is.numeric(column) || is.integer(column)) {
+    data.frame(
+      Variable = name,
+      Mean = round(mean(column, na.rm = TRUE), 2),
+      Median = round(median(column, na.rm = TRUE), 2),
+      St.Deviation = round(sd(column, na.rm = TRUE), 2),
+      Range = round(diff(range(column, na.rm = TRUE)), 2),
+      IQR = round(IQR(column, na.rm = TRUE), 2),
+      Skewness = round(skewness(column, na.rm = TRUE), 2),
+      Kurtosis = round(kurtosis(column, na.rm = TRUE), 2),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    NULL
+  }
+}
+
+# ID is not a measured variable, removing from results
+numeric_df <- df_eda[sapply(df_eda, is.numeric)]
+numeric_df <- numeric_df[ , !names(numeric_df) %in% "ID" ]
+
+# Apply the function to each numeric or integer column in the dataset
+descriptive_stats <- do.call(
+  rbind,
+  lapply(names(numeric_df), function(col) compute_stats(numeric_df[[col]], col))
+)
+
+# Print the descriptive statistics dataframe
+descriptive_stats
+
+```
+ 
+
+## Descriptive Statistics Continued
+
+***Step 7: Print Descriptive Statistics***
+
+Now you have all the descriptive statistics for all numeric variables  Create a professional table in your paper. The library(KableExtra), can help you create the table here. If you have no programming experience you can cut and paste in Excel and beautify the table in Excel.
+
+```{r}
+
+#############################################################
+# 
+# Step 7: Print Descriptive Statistics
+# Now you have all the descriptive statistics for all numeric variables
+# Create a professional table in your paper.
+# the library(KableExtra), can help you create the table here.
+# if you have no programming experience you can cut and paste in Excel
+# and beautify the table in Excel
+#############################################################
+  
+  print("Descriptive Statistics:")
+  print(descriptive_stats)
+  
+
+```
+
+## Your Turn
+
+**Essay Question**
+
+Review and compare with the previous statistics. Do you observe any undesired changes? Explain in detail. How can this be interpreted? what are your observations? Verify the descriptive statistics, and explain in detail. Explain everything that you obsevrve. Complete your research compare your variables and complete your paper
+
+**Answer**
+
+The descriptive statistics generated in Step 6 were reviewed and compared with earlier exploratory summaries produced prior to the final schema repair and data cleaning process. No undesired or unexpected changes were observed in the numeric variables after the completion of Step 5. The values now align with the known structure and ranges of the dataset, indicating that the structural corrections and row-level repairs did not distort the underlying distributions.
+
+Overall, the descriptive statistics confirm that the dataset is internally consistent and suitable for exploratory analysis. Measures of central tendency (mean and median), variability (standard deviation, range, and interquartile range), and distribution shape (skewness and kurtosis) provide a clear summary of each numeric variable.
+
+Age has a mean of 28.44 years and a median of 28, indicating a very small difference between the two measures. This suggests a fairly symmetric distribution, although the positive skewness value (0.74) indicates a slight right skew. The standard deviation of 1.96 and a narrow range of 9 years show that age varies very little across the sample, meaning most observations are tightly clustered around the mean.
+
+Height has a mean of 173.37 cm and a median of 175 cm, with a slightly negative skewness (-0.13), suggesting a nearly symmetric distribution with a minimal left skew. The variability is moderate, with a standard deviation of 9.12 cm and a range of 35 cm. These values are consistent with realistic human height distributions and show no signs of anomalies.
+
+Weight has a mean of 70.63 kg and a median of 70 kg, indicating strong symmetry in the distribution. The skewness value of 0.00 further supports this. Weight shows greater variability than age, with a standard deviation of 10.52 kg and a wide range of 36 kg, suggesting meaningful dispersion across the sample.
+
+Income exhibits the greatest variability among all numeric variables. The mean income is 52,408.98, while the median is 50,000, indicating a small difference between the two and a nearly symmetric distribution. This is confirmed by the skewness value of -0.01, which is very close to zero. However, the large standard deviation (9,271.09) and wide range (38,000) highlight substantial income dispersion, making this variable particularly informative for exploratory and future predictive analysis.
+
+Score has a mean of 6.78 and a median of 6.2, with a moderate positive skewness (0.49). This suggests that while most scores are clustered at lower values, a smaller number of higher scores pull the mean upward. The standard deviation of 0.97 and relatively small range (3.4) indicate limited variability, though still enough to support further analysis.
+
+Happiness has a mean of 7.64 and a median of 7.5, again showing close agreement between measures of central tendency. The skewness value (-0.11) indicates an approximately symmetric distribution. Variability is modest, with a standard deviation of 1.03 and a range of 3.0, suggesting that most respondents report similar levels of happiness with few extreme values.
+
+Across all variables, the kurtosis values fall within a reasonable range, indicating no extreme heavy-tailed or overly flat distributions. Missing values were appropriately excluded from calculations using na.rm = TRUE, and their presence did not introduce distortions in the computed statistics.
+
+In summary, the descriptive statistics reveal no anomalies or undesired changes following data cleaning. The distributions are plausible, internally consistent, and well-suited for further exploratory analysis. Differences in variability across variables—particularly between Age and Income—highlight which measures may be more informative in subsequent visualizations and analyses. These results provide a strong foundation for the graphical exploration and descriptive questions that follow.
+
+## Visual Representations
+
+***Step 8: Create graphs using ggplot2 ***
+
+For this part there are parts that you will need to change to create your graphs. The example is set to work with Income. Make the necessary changes to create the rest of the graphs. You may also want to change the colors, the dimensions etc...
+
+```{r}
+
+
+  #######################################################################
+  # 
+  # Step 8: Create graphs using ggplot2
+  # For this part there are parts that you will need to change to create 
+  # your graphs.
+  # The example is set to work with Income
+  # Make the necessary changes to create the rest of the graphs
+  # You may also want to change the colors, the dimensions etc...
+  #############################################################
+  
+  #############################################################
+  #
+  # STEP 8a: Create a bargraph or a histogram
+  # Explain what graph was that and why?
+  # Set col to the desired column name
+  #############################################################
+  #
+  ##
+  # In this code we start you of with an example of Happiness, later in the code
+  # you should replace this with your desired variable.
+  #
+  
+  col1 = "Age"  # Numeric Variable 
+  col2 = "Income"  # Numeric Variable 
+  col3 = "Happiness"  # Numeric Variable 
+  col4 = "Gender" # Category Variable
+  col5 = "Education"  # Category Variable
+  col6 = "Employment" # Category Variable
+
+```
+
+
+## Bargraph - if the variable of your choice is categorical
+
+```{r Bargraph, eval = FALSE}  
+  # Assume df_eda is your dataframe and col is the column name (as string)
+if (is.factor(df_eda[[col4]])) {
+  # Bar graph for factors
+  ggplot(df_eda, aes(x = .data[[col4]], fill = .data[[col4]])) +
+    geom_bar() +
+    labs(title = paste("Bar Graph for", col4), x = col4, y = "Count") +
+    theme_minimal() +
+    theme(legend.position = "right")
+  
+} 
+```
+
+
+## Histogram - If the varaibles of your choice is Numerical
+
+You can also copy the chunk and create more graphs by resetting the col variable appropriately
+
+
+```{r}
+if (is.numeric(df_eda[[col1]]) || is.integer(df_eda[[col1]])) {
+  # Histogram for numeric variables
+  ggplot(df_eda, aes(x = .data[[col1]])) +
+    geom_histogram(bins = 30, fill = "steelblue", color = "black") +
+    labs(title = paste("Histogram for", col1), x = col1, y = "Frequency") +
+    theme_minimal()
+}
+```
+
+## Your Turn
+
+**Essay Question**
+
+Now that you can observe graphically your data, explain the importance of graphical representations and how this helps to communicate data with other parties.
+Explain what graph was that and why? 
+
+**Answer**
+Graphical representations are an essential component of exploratory data analysis because they allow patterns in the data to be communicated quickly and intuitively. While numerical summaries provide precise measurements, visualizations make it easier to compare groups, identify dominant categories, and communicate findings to audiences who may not be familiar with statistical terminology.
+
+The graph displayed above is a bar graph of Gender, which is appropriate because Gender is a categorical variable. Bar graphs are well suited for categorical data as they display the frequency or count of observations within each category, allowing for straightforward comparison across groups.
+
+In this bar graph, the Male category has the highest count, followed by Female, with Other representing a smaller proportion of the sample. This indicates that the dataset is not evenly distributed across gender categories, though all groups are clearly represented. The visualization makes these differences immediately apparent and provides important context for interpreting other variables in the dataset, such as income, education, or happiness, where gender-based differences may be explored further.
+
+Overall, this bar graph effectively summarizes the gender composition of the dataset and demonstrates how categorical visualizations support clear and accessible communication of descriptive findings.
+      
+## Your Turn
+
+***STEP 8b: Create a boxplot and a Histogram for numeric variables note the the Bin width cannot be set up in the same way to work with Age or Happiness that has a small range and Income that the range is in thousands. Change this appropriately***
+
+Please note that this part of the code will not run for the demo code. You will need to change the value of eval=FALSE to eval=TRUE, after you introduce your code, to run it and add it to your knitted file.
+
+```{r YourTurn, eval=FALSE}
+ #############################################################
+      #
+      # STEP 8b: Create a boxplot  and Histogram for numeric variables
+      # note the the Bin width cannot be set up in the same way to work with 
+      # Age or Happiness that has a small range and Income that the range is in thousands
+      # Change this appropriately
+      #############################################################
+      #
+      # Choose a numeric variable (i.e., Age) set the col variable to the name of the column then you rerun the code that is commented out here.
+
+#col = ____ Add the variable of your choice  
+
+# Uncomment the code and you will create a Bar graph or a Histogram of a different variable here.
+# Do not forget to change the value of eval=TRUE to run and knit this chunk
+    
+  if (is.factor(df_eda[[col1]])) { # if the col is categorical, then the code will
+      # create two graphs the Bar graph 
+      # Highlight and run until the line that start with `# Boxplot for numeric variables
+      #
+      # If the col is numeric, then it will create the histogram
+      # Bar graph for factors
+      ggplot(df_eda, aes(x = .data[[col1]], fill = .data[[col1]])) +
+        geom_bar() +
+        labs(title = paste("Bar Graph for", col1), x = col1, y = "Count") +
+        theme_minimal() +
+        theme(legend.position = "right")
+    } else if (is.numeric(df_eda[[col1]]) || is.integer(df_eda[[col1]])) {
+      
+      ggplot(df_eda, aes(x = .data[[col1]])) +
+        geom_histogram(binwidth = 0.3) +
+        labs(title = paste("Histogram for", col1), x = col1, y = "Count") +
+        theme_minimal()
+    }
+```
+
+## Your Turn
+
+**Essay Question**
+
+Now explain this graph. Focus on the information extracted, anomalies, outliers, relationships.
+
+**Answer**
+This graph presents another histogram of Age, generated using a different bin width to better reflect the limited range of the variable. Adjusting the bin width is important because an inappropriate bin size can either oversimplify the data or introduce unnecessary noise into the visualization.
+
+With the adjusted bin width, the histogram reveals finer detail in the Age distribution. The clustering of values becomes more apparent, showing that most participants fall within a small number of adjacent age groups. No major gaps or irregular patterns are observed, suggesting that the Age data are well-behaved and evenly distributed within the sample.
+
+This visualization confirms that there are no extreme anomalies or unexpected spikes in Age values. The consistency between this histogram and the earlier descriptive statistics increases confidence in the quality of the data and supports its suitability for further analysis.
+
+## Your Turn
+
+***Step 8c: NOTE that you should run this part with the latest value of col. Do not forget to change the eval=TRUE to knit it.
+      
+**Boxplot for numeric variables**
+
+
+```{r boxplot, eval=FALSE}
+       #############################################################
+       #
+       # Step 8c
+       # NOTE that you should run this part of the code after you 
+       #  copy the graph that the previous code creates. Boxplot for numeric variables
+       #############################################################
+      # The next 5 lines will run only if the col is numeric, otherwise will give you an error.
+      
+  
+       ggplot(df_eda, aes(x = "", y = .data[[col1]])) +
+  geom_boxplot(fill = "skyblue", color = "darkblue", width = 0.3, outlier.color = "red", outlier.size = 2) +
+  labs(
+    title = paste("Box Plot for", col),
+    x = NULL,
+    y = "Value"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    axis.title.y = element_text(size = 14),
+    axis.text.y = element_text(size = 12)
+  )
+```
+
+## Your Turn
+
+**Essay Question**
+
+Explain the findings of your Boxplot. Are there any outliers? What is the IQR? Focus on the information extracted, anomalies, outliers, relationships.
+
+**Answer**
+The boxplot displayed above provides a compact visual summary of the Age variable using the five-number summary: minimum, first quartile, median, third quartile, and maximum. Boxplots are particularly useful for identifying variability, central tendency, and potential outliers.
+
+The boxplot shows a relatively small interquartile range (IQR), indicating that the middle 50% of Age values are closely grouped. The median is positioned near the center of the box, which suggests a fairly symmetric distribution, consistent with the histogram and descriptive statistics. The whiskers extend evenly on both sides, and no extreme outliers are visible.
+
+Overall, the boxplot reinforces the conclusion that Age varies little across the dataset and does not contain unusual or extreme values. This low variability suggests that Age may be less influential as a predictor variable in future modeling compared to variables with greater dispersion, such as Income.
+
+## Tabular Representations
+
+***Step 9: Tables***
+
+Creating tables to understand how the different categorical variables interconnect. Tabular information can be provided in both tables and parallel barplots. The following is an example on two variables, choose two others to get more valuable insights.
+
+```{r Tabular}
+#############################################################
+#
+# Step 9
+#
+# Creating tables to understand how the different categorical variables
+# interconnect
+# Tabular information can be provided in both tables and parallel barplots.
+# The following is an example on two variables, choose two others to get
+# more valuable insights.
+#############################################################
+
+Gender_Education <- table(df_eda$Education, df_eda$Gender)
+Gender_Education # what does this information tells you?
+# How Many rows are there?
+# This is the number of colors you should have in the vector below
+# more intuitive colors can be added here.
+# Keep the order from top to bottom to create your legend vector
+addmargins(Gender_Education) # Add totals to your table
+color <- c("red","blue","yellow","green")
+names <- c("Bachelor's","High School", "Master's","PhD")
+barplot(Gender_Education, col=color, beside= TRUE, main = "Education by Gender", ylim = c(0,250) )
+legend("topright",names,fill=color,cex=0.5) 
+# topright is the position of the legend, it can be moved to top, left bottom, etc...
+# you do not change the rest of the parameters here
+print(addmargins(Gender_Education))
+
+```
+
+## Making Pretty Tables
+```{r}
+library(knitr)
+library(kableExtra)
+
+# Create the contingency table
+Gender_Education <- table(df_eda$Education, df_eda$Gender)
+
+# Add row and column totals
+Gender_Education_margins <- addmargins(Gender_Education)
+
+# Make a clean and beautiful table with kable
+kable(Gender_Education_margins, caption = "Gender by Education Level", align = 'c') %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
+  row_spec(0, bold = TRUE, background = "#D3D3D3")  # Highlight header
+
+```
+
+
+## Your Turn
+
+**Essay Question**
+
+Explain the table in details. Focus on the information extracted, anomalies, outliers, relationships.
+
+**Answer**
+
+The table and clustered bar chart together present the relationship between Gender and Education level, allowing for a detailed comparison of educational attainment across gender categories. The contingency table provides precise counts, while the bar chart offers a visual comparison that makes relative differences easier to interpret.
+
+From the table, several clear patterns emerge. Among Female participants, the majority hold a Bachelor’s degree (138), with very few represented at the Master’s level (8) and none at the PhD level. This indicates a strong concentration of female respondents at the undergraduate level within this dataset.
+
+In contrast, Male participants show a very different distribution. While only a small number hold a Bachelor’s degree (4), a large proportion have completed Master’s (89) or PhD (103) degrees. This suggests that, within the sampled data, male respondents are more heavily represented at higher levels of educational attainment.
+
+The Other gender category shows a distinct pattern as well. Most respondents in this group are concentrated at the High School level (72), with smaller counts at the Bachelor’s (9) and PhD (15) levels and no representation at the Master’s level. This uneven distribution highlights how educational attainment varies not only in magnitude but also in structure across gender categories.
+
+The clustered bar chart visually reinforces these findings by clearly showing the contrast between groups. The tall Bachelor’s bar for Female respondents, the dominance of Master’s and PhD bars for Male respondents, and the prominence of High School education among the Other category are immediately apparent. No extreme anomalies or outliers are observed in the sense of impossible values; however, the stark imbalance across education levels by gender represents an important relational pattern in the data.
+
+Overall, this analysis reveals a strong association between Gender and Education level in the dataset. These relationships provide meaningful context for interpreting other variables, such as income or employment status, and suggest that education may act as an important mediating factor in future descriptive or predictive analyses.
+
+# Appendix: Visual Outputs for Report
+## A1: Bar Graphs (Categorical Variables
+
+```{r A1: Bar Graphs (Categorical Variables)}
+# Bar Graph 1: Gender
+ggplot(df_eda, aes(x = Gender, fill = Gender)) +
+  geom_bar() +
+  labs(title = "Gender Distribution", x = "Gender", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+# Bar Graph 2: Education
+ggplot(df_eda, aes(x = Education, fill = Education)) +
+  geom_bar() +
+  labs(title = "Education Level Distribution", x = "Education", y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+# Bar Graph 3: Employment
+ggplot(df_eda, aes(x = Employment, fill = Employment)) +
+  geom_bar() +
+  labs(title = "Employment Status Distribution", x = "Employment", y = "Count") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+## A2: Histograms (Numeric Variables)
+
+```{r A2: Histograms (Numeric Variables)}
+# Histogram 1: Age
+ggplot(df_eda, aes(x = Age)) +
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "black") +
+  labs(title = "Histogram of Age", x = "Age", y = "Frequency") +
+  theme_minimal()
+
+# Histogram 2: Income
+ggplot(df_eda, aes(x = Income)) +
+  geom_histogram(binwidth = 5000, fill = "darkgreen", color = "black") +
+  labs(title = "Histogram of Income", x = "Income", y = "Frequency") +
+  theme_minimal()
+
+# Histogram 3: Happiness
+ggplot(df_eda, aes(x = Happiness)) +
+  geom_histogram(binwidth = 0.5, fill = "purple", color = "black") +
+  labs(title = "Histogram of Happiness", x = "Happiness", y = "Frequency") +
+  theme_minimal()
+
+```
+
+## A3: Boxplots (Numeric Variables)
+
+```{r A3: Boxplots (Numeric Variables)}
+# Boxplot 1: Age
+ggplot(df_eda, aes(y = Age)) +
+  geom_boxplot(fill = "skyblue", outlier.color = "red") +
+  labs(title = "Boxplot of Age", y = "Age") +
+  theme_minimal()
+
+# Boxplot 2: Income
+ggplot(df_eda, aes(y = Income)) +
+  geom_boxplot(fill = "lightgreen", outlier.color = "red") +
+  labs(title = "Boxplot of Income", y = "Income") +
+  theme_minimal()
+
+# Boxplot 3: Happiness
+ggplot(df_eda, aes(y = Happiness)) +
+  geom_boxplot(fill = "plum", outlier.color = "red") +
+  labs(title = "Boxplot of Happiness", y = "Happiness") +
+  theme_minimal()
+
+```
+
+## A4: Contingency Table
+
+```{r A4: Contingency Table}
+Gender_Education <- table(df_eda$Education, df_eda$Gender)
+addmargins(Gender_Education)
+
+```
+
+## Predictive Modeling
+
+***Step 10 - Linear Regression and Correlation***
+
+Use the following chunk as a compass. Choose two numeric variables and run the following regression. Choose different variables than the ones presented below.
+
+```{r CorrelationMatrix}
+
+
+#############################################################
+#
+# Step 10 - Linear Regression and Scatterplots
+# Choose two numeric variables and run the following regression.
+# Do not use the following two variables
+# The code is presented as an example
+#
+# We separate the numerical variables and review their relationships
+# The numerical variables are in columns 3,4,5,7, 10, 15
+#############################################################
+
+temp_df <- df_eda[c(3:5,7,10,15)] # we only select the numeric variables
+pairs(temp_df) # this creates a correlation matrix
+
+```
+
+## Your Turn
+
+**Essay Question**
+
+Explain the Correlation Matrix and the heat map in detail, what relationships can you identify, what trends, why they are important? Can you tie this to your beliefs and understanding of similar data?
+
+**Answer**
+The correlation/pairs plot provides a visual “matrix” of relationships among the numeric variables selected from the dataset. Each off-diagonal panel shows a scatterplot for one variable against another, which makes it easy to spot (a) positive vs. negative relationships, (b) linear vs. non-linear patterns, (c) clusters, and (d) potential outliers.
+
+Across the matrix, the most useful patterns are the relationships where the points form a clear upward or downward trend rather than a random cloud. When the points align in a roughly straight band, it suggests a linear association and supports using linear regression as a predictive method. When the points are widely scattered without a clear direction, the association is weak and a linear model may have limited predictive value. If the pattern is curved, then a simple linear regression may not be the best choice and a different functional form (or another predictive method) might be more appropriate.
+
+From a practical perspective, these relationships matter because they guide which predictors are worth testing. Stronger visual associations suggest variables that may explain meaningful variance in an outcome, while weak patterns suggest that prediction will be poor. This aligns with my understanding of similar demographic/socioeconomic datasets: variables tied to resources (like income-related measures) often show clearer trends than tightly clustered demographic variables (like age in a narrow sample).
+
+```{r Regression}
+#############################################################
+#
+# Step 11 Run a regression model
+# Make the necessary changes below to run your own regression
+# Answer the questions in your paper
+#
+#############################################################
+
+
+r <- lm(Income~Age, data=df_eda) # it runs the least squares
+r
+summary(r) # Information about your variables, R^2 and p value are printed
+# In your example you should change the title and the labels of the axis appropriately
+# Change Colors
+```
+
+## Your Turn
+
+**Essay Question**
+
+Explain the Results that you receive What does the R^2 means in this example? what about the p-value? Why they are important? Can you tie this to your beliefs and understanding of similar data?
+
+**Answer**
+The simple linear regression model estimates Income as a function of Age. The slope for Age is approximately 2273.3, meaning that for each one-unit increase in Age (one year), the model predicts an average increase of about $2,273 in Income, holding everything else constant (in a simple regression, “everything else” is not explicitly included).
+
+Predictive-Data
+
+The p-value for Age is < 2e-16, which indicates the Age coefficient is statistically different from zero. In practical terms, the data provide very strong evidence that Age is associated with Income in this sample (i.e., the trend is unlikely to be due to random variation alone).
+
+Predictive-Data
+
+The R² (coefficient of determination) represents the proportion of variance in Income explained by Age in this model. A higher R² would mean Age is a stronger predictor of Income; a lower R² would mean Age explains only a small portion of Income differences and that other predictors are needed. R² is important because statistical significance alone does not tell us whether the model is useful for prediction—R² helps evaluate practical predictive power.
+
+This aligns with real-world expectations: income often increases with age due to work experience and career progression, but income is also influenced by other factors such as education level, occupation, and employment status. Therefore, while Age may be significant, a multiple regression model is often needed for stronger prediction.
+
+## Visual representations
+
+```{r Scatterplot}
+#############################################################
+#
+# Step 12
+#
+# Create a scatterplot and add the regression line.
+#############################################################
+
+plot(df_eda$Age,df_eda$Income, col = "blue", main = "Income vs Age", xlab = "Age", ylab= "Income") # it plots the scatterplot
+abline(reg=r, col = "red")          # it adds the regression line
+
+```
+
+## Your Turn
+
+**Essay Question**
+
+How the Scatterplot provides more or different perspective to the researcher? Please describe the plot but also share your insights of this exploration.
+
+**Answer**
+The scatterplot provides a visual confirmation of the relationship tested in the regression model by showing individual data points (Age, Income) and the overall direction of the trend. Unlike summary statistics alone, the scatterplot shows whether the relationship appears approximately linear, whether there are clusters of points, and whether outliers might be influencing the regression line.
+
+In this case, the regression line helps illustrate the model’s implication that Income increases as Age increases, which matches the positive slope estimated in the regression output. The scatterplot is helpful because it lets the researcher judge whether linear regression is a reasonable modeling choice. If the points were curved, spread unevenly, or driven by a few extreme cases, then the model’s assumptions would be questionable and a different approach might be needed.
+
+
+## Your Turn
+
+Complete the steps that shown above for ***two different numerical variables***
+
+
+```{r YourRegressionA, eval = FALSE}
+
+#############################################################
+#
+# Step 11 Run a regression model
+# Make the necessary changes below to run your own regression
+# Answer the questions in your paper
+#
+#############################################################
+
+# CHANGE the variables Income and Age, but always choose numerical variables.
+# Do not forget to change the eval=TRUE for this and the following chunk before you knit.
+
+r <- lm(Income~Age, data=df_eda) # it runs the least squares
+r
+summary(r) # Information about your variables, R^2 and p value are printed
+# In your example you should change the title and the labels of the axis appropriately
+# Change Colors
+
+```
+
+
+## Your Regression DIagnostics
+
+```{r YourRegressionB, eval=FALSE}
+#############################################################
+#
+# Step 12
+#
+# Create a scatterplot and add the regression line.
+#############################################################
+
+plot(df_eda$Age,df_eda$Income, col = "blue", main = "Income vs Age", xlab = "Age", ylab= "Income") # it plots the scatterplot
+abline(reg=r, col = "red")          # it adds the regression line
+
+
+```
+
+## Your Turn
+
+**Essay Question**
+Explain the Results that you receive What does the R^2 means in this example? what about the p-value? Why they are important? Can you tie this to your beliefs and understanding of similar data? How the Scatterplot provides more or different perspective to the researcher? Please describe the plot but also share your insights of this exploration.
+
+**Answer**
+The multiple linear regression model predicts Income using Age, Gender, and Education simultaneously. The model explains a large proportion of variance in Income (R² = 0.8758, Adjusted R² = 0.8737), indicating strong predictive performance for this dataset.
+
+Predictive-Data
+
+Interpreting coefficients relative to the reference categories (Gender baseline and Education baseline), the results suggest:
+
+Age has a statistically significant negative association with Income when controlling for Gender and Education (Estimate ≈ -483, p ≈ 0.00101).
+
+Predictive-Data
+
+Male is associated with higher Income than the reference Gender category (Estimate ≈ +3094, p ≈ 5.55e-05).
+
+Predictive-Data
+
+Other is associated with lower Income than the reference Gender category (Estimate ≈ -2406, p ≈ 0.00524).
+
+Predictive-Data
+
+Education shows large differences: High School is substantially lower than the reference education group (≈ -9844), while Master’s (≈ +13022) and PhD (≈ +11276) are substantially higher, all strongly significant.
+
+Predictive-Data
+
+A key limitation is that 130 observations were removed due to missingness, which may affect generalizability. Still, overall the results are consistent with real-world expectations that education level is strongly related to income, and they show the value of including multiple predictors rather than relying on a single variable alone.
+
+Predictive-Data
+
+
+## Optional - Run and Explain a Multiple Linear Regression
+
+An example on three predictors is shown below. You can choose your own variables or provide an explanation of the findings for this example
+
+```{r}
+
+#############################################################
+#
+# Step 13 - Optional
+#
+# In case you want to add more variables in your model the following 
+# Example is provided.
+#############################################################
+
+# Run the multiple regression model (one time only)
+r2 <- lm(Income ~ Age + Gender + Education, data = df_eda)
+
+# View results
+r2
+summary(r2)
+
+# ---------------------------
+# Standard Regression Diagnostics (4 plots)
+# ---------------------------
+par(mfrow = c(2, 2))
+plot(r2)     # produces: Residuals vs Fitted, QQ, Scale-Location, Residuals vs Leverage
+par(mfrow = c(1, 1))
+
+# ---------------------------
+# Additional Diagnostics
+# ---------------------------
+
+# Histogram of residuals
+hist(residuals(r2),
+     main = "Histogram of Residuals",
+     xlab = "Residuals",
+     col = "lightblue",
+     border = "white")
+
+# Residuals vs each predictor (USE model.frame to avoid length mismatch)
+mf2 <- model.frame(r2)       # data actually used in the model (rows with NAs removed)
+res2 <- residuals(r2)
+
+par(mfrow = c(1, 3))
+
+plot(mf2$Age, res2,
+     main = "Residuals vs Age",
+     xlab = "Age",
+     ylab = "Residuals")
+abline(h = 0, col = "red")
+
+plot(mf2$Gender, res2,
+     main = "Residuals vs Gender",
+     xlab = "Gender",
+     ylab = "Residuals")
+abline(h = 0, col = "red")
+
+plot(mf2$Education, res2,
+     main = "Residuals vs Education",
+     xlab = "Education",
+     ylab = "Residuals")
+abline(h = 0, col = "red")
+
+par(mfrow = c(1, 1))
+
+# Cook's Distance (influential points)
+cooksd <- cooks.distance(r2)
+plot(cooksd, type = "h",
+     main = "Cook's Distance",
+     ylab = "Cook's Distance")
+abline(h = 4/length(cooksd), col = "red", lty = 2)  # common threshold
+
+```
+
+# Appendix: Predictive Outputs for Report
+## A1: correlation Matrix (Numeric Variables)
+
+```{r A1_Correlation_Matrix}
+# A1: Correlation Matrix (Numeric Variables)
+# Uses pairwise complete observations so missing values do not break the matrix.
+
+# Choose numeric variables (adjust if your column positions differ)
+# Recommended set for this report:
+# Age, Income, Happiness, Score, Height, Weight (only keep those that exist and are numeric)
+num_vars <- c("Age", "Income", "Happiness", "Score", "Height", "Weight")
+num_vars <- num_vars[num_vars %in% names(df_eda)]  # keep only columns that exist
+
+temp_num <- df_eda[, num_vars]
+
+# Keep only numeric columns (in case something is not numeric after import/cleaning)
+temp_num <- temp_num[, sapply(temp_num, is.numeric)]
+
+# Correlation matrix
+cor_mat <- cor(temp_num, use = "pairwise.complete.obs")
+
+# Print correlation matrix in the RMD output
+cor_mat
+
+# Save correlation matrix to CSV for your appendix assets folder
+if (!dir.exists("Appendix_Assets/Tables")) dir.create("Appendix_Assets/Tables", recursive = TRUE)
+write.csv(cor_mat, "Appendix_Assets/Tables/A1_Correlation_Matrix.csv", row.names = TRUE)
+
+```
+## A2: Correlation Heatmap (Numeric Variables)
+
+
+```{r A2_Correlation_Heatmap}
+# A2: Correlation Heatmap (Numeric Variables)
+
+# Convert correlation matrix into long format for ggplot
+cor_df <- as.data.frame(as.table(cor_mat))
+colnames(cor_df) <- c("Var1", "Var2", "Correlation")
+
+# Heatmap
+heat <- ggplot(cor_df, aes(x = Var1, y = Var2, fill = Correlation)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Correlation, 2)), size = 3) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  labs(title = "Correlation Heatmap (Numeric Variables)",
+       x = "Variable", y = "Variable") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+heat
+
+# Save heatmap as PNG for your appendix assets
+if (!dir.exists("Appendix_Assets/Figures")) dir.create("Appendix_Assets/Figures", recursive = TRUE)
+ggsave("Appendix_Assets/Figures/A2_Correlation_Heatmap.png", plot = heat, width = 8, height = 6, dpi = 300)
+
+```
+
+## B1: Single Linear Regression Output (Income - Age)
+
+
+```{r B1_Regression_Model_Income_Age}
+# B1: Single Linear Regression Output (Income ~ Age)
+
+# Run the regression model
+r1 <- lm(Income ~ Age, data = df_eda)
+
+# Print the summary to the HTML output
+summary(r1)
+
+# Save the coefficient table (clean and easy to paste into report)
+coef_table <- as.data.frame(summary(r1)$coefficients)
+coef_table$Term <- rownames(coef_table)
+rownames(coef_table) <- NULL
+coef_table <- coef_table[, c("Term", "Estimate", "Std. Error", "t value", "Pr(>|t|)")]
+
+# Save table to Appendix assets folder
+if (!dir.exists("Appendix_Assets/Tables")) dir.create("Appendix_Assets/Tables", recursive = TRUE)
+write.csv(coef_table, "Appendix_Assets/Tables/B1_Regression1_Coefficients_Income_Age.csv", row.names = FALSE)
+
+# Save key model fit statistics (R^2, Adj R^2, etc.) as a small table
+fit_stats <- data.frame(
+  Metric = c("R-squared", "Adjusted R-squared", "Residual Std. Error", "F-statistic", "Model p-value", "N used"),
+  Value  = c(
+    summary(r1)$r.squared,
+    summary(r1)$adj.r.squared,
+    summary(r1)$sigma,
+    unname(summary(r1)$fstatistic[1]),
+    pf(summary(r1)$fstatistic[1], summary(r1)$fstatistic[2], summary(r1)$fstatistic[3], lower.tail = FALSE),
+    nobs(r1)
+  )
+)
+
+fit_stats
+
+write.csv(fit_stats, "Appendix_Assets/Tables/B1_Regression1_FitStats_Income_Age.csv", row.names = FALSE)
+
+```
+
+## B2: Scatterplot with Regression Line (Income vs Age)
+
+This version avoids the “x and y lengths differ” problem by using **only the rows used in the model**.
+
+
+```{r B2_Scatterplot_Income_Age}
+# B2: Scatterplot + Regression Line (Income vs Age)
+
+# Use the same rows the model used (handles missing values correctly)
+mf1 <- model.frame(r1)
+
+p_b2 <- ggplot(mf1, aes(x = Age, y = Income)) +
+  geom_point(color = "blue", alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "Income vs Age (with Regression Line)",
+    x = "Age",
+    y = "Income"
+  ) +
+  theme_minimal()
+
+p_b2
+
+# Save figure
+if (!dir.exists("Appendix_Assets/Figures")) dir.create("Appendix_Assets/Figures", recursive = TRUE)
+ggsave("Appendix_Assets/Figures/B2_Scatterplot_Income_Age.png", plot = p_b2, width = 8, height = 6, dpi = 300)
+
+```
+
+## C1: Multiple Linear Regression Output (Income - Age + Gender + Education)
+
+```{r C1_Multiple_Regression_Output}
+# C1: Multiple Linear Regression Output (Income ~ Age + Gender + Education)
+
+# Run the multiple regression model
+r2 <- lm(Income ~ Age + Gender + Education, data = df_eda)
+
+# Print full summary to HTML
+summary(r2)
+
+# Save coefficient table
+coef_table_c2 <- as.data.frame(summary(r2)$coefficients)
+coef_table_c2$Term <- rownames(coef_table_c2)
+rownames(coef_table_c2) <- NULL
+coef_table_c2 <- coef_table_c2[, c("Term", "Estimate", "Std. Error", "t value", "Pr(>|t|)")]
+
+if (!dir.exists("Appendix_Assets/Tables")) dir.create("Appendix_Assets/Tables", recursive = TRUE)
+write.csv(coef_table_c2,
+          "Appendix_Assets/Tables/C1_Regression2_Coefficients_Income_Age_Gender_Education.csv",
+          row.names = FALSE)
+
+# Save model fit statistics
+fit_stats_c2 <- data.frame(
+  Metric = c("R-squared", "Adjusted R-squared", "Residual Std. Error", "F-statistic", "Model p-value", "N used"),
+  Value  = c(
+    summary(r2)$r.squared,
+    summary(r2)$adj.r.squared,
+    summary(r2)$sigma,
+    unname(summary(r2)$fstatistic[1]),
+    pf(summary(r2)$fstatistic[1], summary(r2)$fstatistic[2], summary(r2)$fstatistic[3], lower.tail = FALSE),
+    nobs(r2)
+  )
+)
+
+fit_stats_c2
+
+write.csv(fit_stats_c2,
+          "Appendix_Assets/Tables/C1_Regression2_FitStats_Income_Age_Gender_Education.csv",
+          row.names = FALSE)
+
+```
+
+## C2: Regression Diagnostics (Standard 4-Panel Plot)
+
+These plots support **model adequacy discussion** (linearity, normality, homoscedasticity, influential points).
+
+
+```{r C2_Regression_Diagnostics}
+# C2: Standard Regression Diagnostics (4-panel plot)
+
+if (!dir.exists("Appendix_Assets/Figures")) dir.create("Appendix_Assets/Figures", recursive = TRUE)
+
+png("Appendix_Assets/Figures/C2_Regression_Diagnostics_Income_Age_Gender_Education.png",
+    width = 1000, height = 1000, res = 150)
+
+par(mfrow = c(2, 2))
+plot(r2)   # Residuals vs Fitted, QQ plot, Scale-Location, Residuals vs Leverage
+par(mfrow = c(1, 1))
+
+dev.off()
+
+```
+
+## D1: Observations Used Vs Dropped
+
+```{r D1_Missing_Data_Summary}
+# D1: Sample Size and Missing Data Summary
+
+# Total observations in cleaned dataset
+total_n <- nrow(df_eda)
+
+# Observations used in each model
+n_model_1 <- nobs(r1)  # Income ~ Age
+n_model_2 <- nobs(r2)  # Income ~ Age + Gender + Education
+
+# Rows dropped due to missing values
+dropped_model_1 <- total_n - n_model_1
+dropped_model_2 <- total_n - n_model_2
+
+missing_summary <- data.frame(
+  Model = c("Single Regression (Income ~ Age)",
+            "Multiple Regression (Income ~ Age + Gender + Education)"),
+  Total_Observations = c(total_n, total_n),
+  Observations_Used = c(n_model_1, n_model_2),
+  Observations_Dropped = c(dropped_model_1, dropped_model_2)
+)
+
+missing_summary
+
+# Save table for appendix assets
+if (!dir.exists("Appendix_Assets/Tables")) dir.create("Appendix_Assets/Tables", recursive = TRUE)
+write.csv(missing_summary,
+          "Appendix_Assets/Tables/D1_Missing_Data_Summary.csv",
+          row.names = FALSE)
+
+```
+
+
+
+
+
+

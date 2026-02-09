@@ -1,0 +1,340 @@
+---
+title: "Assignment 3: Conduct and Interpret Univariate Data Visualization & Outlier Analysis/Handling"
+author: "Juan Maldonado Franco"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    toc: false
+    number_sections: true
+  html_document:
+    toc: true
+    toc_depth: 3
+fontsize: 12pt
+geometry: margin=1in
+header-includes:
+  - \usepackage{setspace}
+  - \doublespacing
+---
+
+\newpage
+
+<div align="center">
+
+**Assignment 3: Conduct and Interpret Univariate Data Visualization & Outlier Analysis/Handling**  
+
+Juan Maldonado Franco  
+
+Department of Technology, National University  
+
+DDS-8501: Exploratory Data Analysis  
+
+Dr Amir Schur  
+
+`r format(Sys.Date(), '%B %d, %Y')`  
+
+</div>
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+# Executive Summary
+
+This report conducts univariate exploratory data analysis (EDA) on Connecticut town-level COVID-19 surveillance indicators, emphasizing distributional form, departures from normality, missingness, and extreme observations that can distort inference.  In the EDA tradition, the objective is not to “confirm” a model a priori, but to learn how the data behave and to justify principled choices about transformations, robust summaries, and subsequent modeling strategies (Princeton Univ. NJ Dept. of Statistics & Tukey, 1993).
+
+Using the latest cross-sectional snapshot available in the archive, two quantitative variables—cumulative total cases and cumulative total deaths—are examined with histograms, dot plots, box plots, and normal probability (Q–Q) plots.  Two categorical perspectives—town identity (summarized via a top-20 view for interpretability) and a case-rate quartile factor—are summarized with bar plots to assess concentration and imbalance.  Across towns, both quantitative distributions are strongly right-skewed with systematic deviations from normality, and a small number of towns occupy the extreme upper tail.  These observations are documented using the IQR rule and are treated as substantively meaningful heterogeneity rather than automatic “bad data.”  For downstream modeling, robust summaries and variance-stabilizing transformations are warranted (NIST, 2012).
+
+# Introduction
+
+Exploratory data analysis is an analytic stance that prioritizes graphical and robust summaries to reveal structure, anomalies, and constraints before formal modeling.  Tukey’s conception of EDA emphasizes that real data frequently violate convenient assumptions; therefore, visualization and re-expression are not optional preliminaries, but central mechanisms for learning from data (Princeton Univ. NJ Dept. of Statistics & Tukey, 1993).  Univariate visualization is foundational in this workflow because it clarifies the distributional characteristics of individual variables, makes missingness visible, and identifies extremes that can dominate estimation.
+
+In the COVID-19 context, town-level cumulative counts and rates typically reflect population concentration and heterogeneous exposure dynamics, producing right-skewed distributions in which a small number of municipalities account for a disproportionate share of burden.  Prior work in Connecticut indicates that contextual characteristics at local geographic scales can be associated with observed variation in COVID-19 mortality, reinforcing the expectation of meaningful municipal heterogeneity (Meng, 2021).  Consequently, rigorous univariate assessment is necessary to justify later choices about transformations, robust inference, and model families.
+
+# Data Source and Analytic Sample
+
+The dataset used here is the **COVID-19 Tests, Cases, and Deaths (By Town) – ARCHIVE**, published by the Connecticut Department of Public Health and distributed via the State of Connecticut open data portal and Data.gov.  The archive contains town-level daily reports of cases, deaths, and testing indicators and is subject to revision as reporting is updated.
+
+Because repeated daily measurements would confound a univariate “across towns” distribution with within-town time dynamics, the analysis is conducted on a single cross-sectional snapshot: the most recent update date available in the file.  This design produces one record per town for the selected date and supports interpretable town-to-town distributional comparisons.
+
+```{r libraries}
+# install.packages("tidyverse")
+# install.packages("lubridate")
+# install.packages("patchwork")
+# install.packages("qqplotr")
+# install.packages("scales")
+library(tidyverse)
+library(lubridate)
+library(patchwork)
+library(qqplotr)
+library(scales)
+```
+
+```{r load-data}
+# NOTE: Update this path if your file is stored elsewhere.
+data_path <- "COVID-19_Tests,_Cases,_and_Deaths_(By_Town)_-_ARCHIVE_20260201.csv"
+
+raw <- readr::read_csv(data_path, show_col_types = FALSE)
+
+glimpse(raw)
+```
+
+## Data Preparation and Type Standardization
+
+Public surveillance files frequently encode numeric quantities as character strings (including commas) and dates as strings.  These representations must be normalized before valid visualization and outlier detection can occur.  The preprocessing below parses dates, converts comma-formatted numerics, and selects the analytic variables used in this report.
+
+```{r clean-data}
+# Helper: convert comma-formatted numbers to numeric
+to_num <- function(x) {
+  x %>%
+    as.character() %>%
+    str_replace_all(",", "") %>%
+    str_trim() %>%
+    na_if("") %>%
+    as.numeric()
+}
+
+df <- raw %>%
+  mutate(
+    last_update = mdy(`Last update date`),
+    town = as.factor(Town),
+    town_number = as.factor(`Town number`),
+
+    total_cases = to_num(`Total cases `),
+    total_deaths = to_num(`Total deaths`),
+    case_rate = to_num(`Case rate`),
+
+    people_tested = to_num(`People tested`),
+    rate_tested_100k = to_num(`Rate tested per 100k`),
+    n_tests = to_num(`Number of tests`),
+    n_positives = to_num(`Number of positives`),
+    n_negatives = to_num(`Number of negatives`),
+    n_indeterminate = to_num(`Number of indeterminates`)
+  ) %>%
+  select(last_update, town, town_number, total_cases, total_deaths, case_rate,
+         people_tested, rate_tested_100k, n_tests, n_positives, n_negatives, n_indeterminate)
+
+# Keep one cross-sectional snapshot for town-level distributions.
+# Using the latest available update date in the file avoids repeated measures by town.
+latest_date <- max(df$last_update, na.rm = TRUE)
+
+df_latest <- df %>%
+  filter(last_update == latest_date) %>%
+  distinct(town, .keep_all = TRUE)
+
+latest_date
+n_distinct(df_latest$town)
+summary(df_latest$total_cases)
+summary(df_latest$total_deaths)
+```
+
+## Variable Selection Rationale
+
+Two quantitative variables represent cumulative burden:
+
+- `total_cases`: cumulative cases by town.  
+- `total_deaths`: cumulative deaths by town.  
+
+Two categorical representations support univariate categorical visualization:
+
+- `town`: nominal identifier.  Because a bar plot over all towns is visually dense, the report uses a top-20 display by cumulative cases to summarize concentration.  
+- `case_rate_quartile`: an ordinal factor derived from the town case-rate distribution.  Quartiles provide an interpretable categorical summary of relative incidence intensity.
+
+```{r create-categorical}
+df_latest <- df_latest %>%
+  mutate(
+    case_rate_quartile = cut(
+      case_rate,
+      breaks = quantile(case_rate, probs = c(0, .25, .50, .75, 1), na.rm = TRUE),
+      include.lowest = TRUE,
+      labels = c("Low (Q1)", "Moderate (Q2)", "High (Q3)", "Very high (Q4)")
+    )
+  )
+```
+
+# Methods: Univariate Visualization, Normality, and Outliers
+
+Univariate visualization serves three linked purposes: (1) describing distributional form (skewness, modality, truncation), (2) diagnosing normality assumptions, and (3) identifying extreme observations with the potential to dominate mean-based summaries and variance-sensitive methods (Princeton Univ. NJ Dept. of Statistics & Tukey, 1993).
+
+For each quantitative variable, four complementary plots are used: a histogram, a dot plot, a box plot, and a normal probability (Q–Q) plot.  This combination parallels the diagnostic logic of established EDA toolkits (NIST, 2012), while matching the assignment’s specified plot set.  Extreme outliers are operationalized using the standard box-plot criterion based on the interquartile range (IQR), which provides a reproducible rule for flagging observations that merit scrutiny.
+
+```{r four-plot-function}
+make_fourplot <- function(data, var, var_label) {
+  v <- rlang::ensym(var)
+
+  p_hist <- ggplot(data, aes(x = !!v)) +
+    geom_histogram(bins = 30) +
+    labs(title = paste0("Histogram: ", var_label), x = var_label, y = "Count")
+
+  p_qq <- ggplot(data, aes(sample = !!v)) +
+    stat_qq_point() +
+    stat_qq_line() +
+    labs(title = paste0("Probability Plot (Q-Q): ", var_label), x = "Theoretical quantiles", y = "Sample quantiles")
+
+  p_dot <- ggplot(data, aes(x = !!v, y = 0)) +
+    geom_point(alpha = 0.5, position = position_jitter(height = 0.08)) +
+    labs(title = paste0("Dot Plot: ", var_label), x = var_label, y = "") +
+    theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+
+  p_box <- ggplot(data, aes(y = !!v)) +
+    geom_boxplot() +
+    coord_flip() +
+    labs(title = paste0("Box Plot: ", var_label), x = "", y = var_label)
+
+  (p_hist + p_qq) / (p_dot + p_box)
+}
+```
+
+# Results: Quantitative Distributions
+
+## Total Cases
+
+```{r fourplot-total-cases, fig.height=7}
+make_fourplot(df_latest %>% filter(!is.na(total_cases)), total_cases, "Total cases (cumulative)")
+```
+
+The total-cases distribution is expected to be right-skewed because Connecticut towns vary substantially in population size and in cumulative exposure intensity.  Consistent with that expectation, the histogram and dot plot emphasize a long upper tail with clear separation between the largest towns and the bulk of municipalities.  The Q–Q plot departs materially from the reference line across quantiles, indicating that normality is not a plausible approximation for the raw count scale.  The box plot flags a subset of extreme upper-tail towns under the IQR rule; within public-health surveillance data, these extremes are more plausibly substantive signal than measurement error, but they will exert strong leverage on mean-based summaries and variance-sensitive models.
+
+## Total Deaths
+
+```{r fourplot-total-deaths, fig.height=7}
+make_fourplot(df_latest %>% filter(!is.na(total_deaths)), total_deaths, "Total deaths (cumulative)")
+```
+
+Total deaths display strong right-skewness with many towns clustered at relatively low counts and a small number of extreme municipalities.  The histogram suggests sparsity at high values, while the dot plot highlights towns that separate materially from the bulk of the distribution.  The Q–Q plot again shows systematic deviation from normality, particularly in the upper tail, reinforcing that normal-theory inference on the raw scale is not appropriate.  In subsequent modeling, these distributional features motivate the use of robust summaries, transformations, or model classes appropriate for nonnegative and potentially overdispersed outcomes.
+
+## A Note on Transformation
+
+To illustrate how re-expression can reduce skewness and stabilize variance, a log transformation is shown for total cases.  Such re-expressions are standard EDA practice when the raw scale exhibits heavy right tails (NIST, 2012).
+
+```{r log-transform-illustration, fig.height=5}
+df_latest %>%
+  mutate(log_total_cases = log10(total_cases + 1)) %>%
+  ggplot(aes(sample = log_total_cases)) +
+  stat_qq_point() +
+  stat_qq_line() +
+  labs(
+    title = "Q-Q plot after log10(total_cases + 1) transformation",
+    x = "Theoretical quantiles",
+    y = "Sample quantiles"
+  )
+```
+
+# Results: Categorical Distributions
+
+## Town Concentration in the Upper Tail
+
+A complete bar plot of all towns is not interpretable in a static report.  Instead, the distributional story is communicated by focusing on the top 20 towns by cumulative cases in the latest snapshot.  This preserves the substantive point of concentration without sacrificing readability.
+
+```{r bar-town-top20, fig.height=6}
+top20 <- df_latest %>%
+  arrange(desc(total_cases)) %>%
+  slice_head(n = 20) %>%
+  mutate(town = fct_reorder(town, total_cases))
+
+ggplot(top20, aes(x = town, y = total_cases)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Top 20 towns by total cases (latest snapshot)",
+    x = "Town",
+    y = "Total cases"
+  ) +
+  scale_y_continuous(labels = comma)
+```
+
+The steep decline after the largest towns indicates that cumulative case burden is concentrated among a limited set of municipalities.  This concentration is consistent with local heterogeneity reported in Connecticut analyses and is compatible with the expectation that contextual differences contribute to observed variation (Meng, 2021).  It also provides an empirical explanation for the heavy right tail observed in the quantitative distributions.
+
+## Case-Rate Quartiles
+
+To summarize relative incidence intensity across towns, case rate is binned into quartiles.  Quartile binning is intentionally descriptive: it supports comparison without imposing a parametric structure and yields an interpretable categorical overview.
+
+```{r bar-case-rate-quartile}
+ggplot(df_latest, aes(x = case_rate_quartile)) +
+  geom_bar() +
+  labs(
+    title = "Distribution of towns by case-rate quartile (latest snapshot)",
+    x = "Case-rate quartile",
+    y = "Number of towns"
+  )
+```
+
+# Data Quality: Missingness and Extreme Observations
+
+## Missingness
+
+Missingness is quantified to establish which variables have incomplete reporting and to ensure that plots and summaries are interpreted with the correct effective sample size.  In this report, `NA` values are omitted only for the specific plot or calculation affected, preserving transparency and preventing inadvertent listwise deletion.  For later inferential work, especially when missingness is non-trivial or plausibly systematic, multiple imputation is a defensible approach because it propagates uncertainty rather than treating incomplete cases as if they were fully observed (van Buuren, 2018).
+
+```{r missingness}
+missing_summary <- df_latest %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "n_missing") %>%
+  arrange(desc(n_missing))
+
+missing_summary
+```
+
+## Extreme Outliers and Their Analytic Impact
+
+Extreme observations are flagged using the standard IQR-based rule applied in box plots.  EDA distinguishes between “outliers as errors” and “outliers as signal.”  In the present setting, extreme towns likely reflect true population and reporting heterogeneity; however, they still have disproportionate influence on means, standard deviations, and model fit.  The analysis therefore documents these extremes and motivates robust or transformed approaches rather than uncritically deleting observations (Princeton Univ. NJ Dept. of Statistics & Tukey, 1993).
+
+```{r outlier-detection}
+iqr_outliers <- function(x) {
+  q1 <- quantile(x, 0.25, na.rm = TRUE)
+  q3 <- quantile(x, 0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  lower <- q1 - 1.5 * iqr
+  upper <- q3 + 1.5 * iqr
+  list(lower = lower, upper = upper)
+}
+
+cases_bounds <- iqr_outliers(df_latest$total_cases)
+deaths_bounds <- iqr_outliers(df_latest$total_deaths)
+
+cases_outliers <- df_latest %>%
+  filter(!is.na(total_cases)) %>%
+  filter(total_cases > cases_bounds$upper) %>%
+  arrange(desc(total_cases)) %>%
+  select(town, total_cases, case_rate)
+
+deaths_outliers <- df_latest %>%
+  filter(!is.na(total_deaths)) %>%
+  filter(total_deaths > deaths_bounds$upper) %>%
+  arrange(desc(total_deaths)) %>%
+  select(town, total_deaths, case_rate)
+
+cases_bounds
+deaths_bounds
+cases_outliers
+deaths_outliers
+```
+
+# Discussion and Implications for Downstream Analysis
+
+Three implications follow from the univariate findings.  First, raw cumulative cases and deaths are not approximately normal at the town level; heavy right tails and systematic Q–Q departures indicate that normal-theory methods on the original scale would be poorly calibrated.  Second, extreme towns are substantively meaningful yet analytically influential; robust summaries and transformations should be treated as first-class analytical choices rather than ad hoc fixes.  Third, missingness must be made explicit and handled in ways that respect uncertainty; simplistic deletion rules can bias inference when missingness is systematic (van Buuren, 2018).
+
+In combination, these observations motivate subsequent EDA stages that examine multivariate structure (for example, relationships among testing intensity, positivity, and outcomes) and modeling strategies that respect the discrete and heterogeneous nature of surveillance data.
+
+# Conclusion
+
+Univariate visualization provides the empirical grounding needed to understand the behavior of individual variables and to justify analytic choices prior to modeling.  In this Connecticut town-level COVID-19 snapshot, cumulative cases and deaths are strongly right-skewed, deviate materially from normality, and contain a small number of extreme upper-tail towns that dominate scale-sensitive summaries.  These characteristics are not merely technical artifacts; they are substantive features of the surveillance process and should be handled with transparent documentation, robust summaries, and defensible transformations consistent with the goals of EDA (Princeton Univ. NJ Dept. of Statistics & Tukey, 1993).
+
+# References
+
+Connecticut Department of Public Health.  (n.d.).  *COVID-19 tests, cases, and deaths (by town) – archive* [Data set].  Data.gov.
+
+Meng, Y.  (2021).  COVID-19 death rates and county subdivision level contextual characteristics: A Connecticut case study.  *Cybergeo: European Journal of Geography*, 965.  https://doi.org/10.4000/cybergeo.36057
+
+National Institute of Standards and Technology.  (2012).  *NIST/SEMATECH e-handbook of statistical methods: 4-plot*.  https://www.itl.nist.gov/div898/handbook/eda/section3/4plot.htm
+
+Princeton Univ. NJ Dept. of Statistics, & Tukey, J. W.  (1993).  *Exploratory data analysis: Past, present, and future* (Technical Report No. 302).  Princeton University.  (Defense Technical Information Center and National Technical Information Service).
+
+van Buuren, S.  (2018).  *Flexible imputation of missing data* (2nd ed.).  Chapman & Hall/CRC.

@@ -1,0 +1,318 @@
+---
+title: "Assignment 7: Generate New Features"
+author: "Juan Maldonado"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    toc: false
+    number_sections: true
+  html_document:
+    toc: true
+    toc_depth: 3
+    df_print: paged
+fontsize: 12pt
+geometry: margin=1in
+---
+
+```{=html}
+<div align="center">
+
+**Assignment 7: Generate New Features**  
+DDS-8501: Exploratory Data Analysis  
+Instructor: Dr. Javier E. León  
+Juan Maldonado  
+`r format(Sys.Date(), '%B %d, %Y')`  
+
+</div>
+```
+
+\newpage
+
+# Introduction
+
+This report continues the exploratory data analysis (EDA) workflow by engineering new, interpretable features from the instructor-assigned **UCI Diabetes** dataset.  Feature engineering creates new variables that can increase explanatory and predictive power by encoding domain-relevant structure that is not explicit in the raw fields.  Consistent with EDA principles, the goal is to understand the data-generating process first and then create features that are logically connected to the underlying phenomena. 
+
+A critical constraint in this assignment is **no information leakage** between the training and test datasets.  Any transformation that learns parameters from the data (for example, scaling using a mean and standard deviation) must be estimated on the **training set only** and then applied unchanged to the test set.
+
+# Step 0: Setup and Data Acquisition
+
+## Libraries
+
+```{r setup, message=FALSE, warning=FALSE}
+# Core
+library(tidyverse)
+library(lubridate)
+
+# For downloading/unzipping
+library(utils)
+
+# For tables
+library(knitr)
+library(kableExtra)
+```
+
+## Download, Extract, and Load the Dataset
+
+The dataset is obtained from the UCI Machine Learning Repository.  Per assignment requirements, the script checks whether the required files exist; if they do not, it downloads and extracts them automatically. 
+
+```{r download-and-load, message=FALSE, warning=FALSE}
+# ---- Paths ----
+data_dir <- "data"
+zip_path <- file.path(data_dir, "diabetes.zip")
+extract_dir <- file.path(data_dir, "diabetes_uci")
+
+if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
+if (!dir.exists(extract_dir)) dir.create(extract_dir, recursive = TRUE)
+
+# ---- Download if missing ----
+uci_zip_url <- "https://archive.ics.uci.edu/static/public/34/diabetes.zip"
+
+if (!file.exists(zip_path)) {
+  download.file(uci_zip_url, destfile = zip_path, mode = "wb", quiet = TRUE)
+}
+
+# ---- Extract if missing ----
+# We assume extraction is complete if README exists.
+readme_path <- file.path(extract_dir, "README")
+if (!file.exists(readme_path)) {
+  unzip(zip_path, exdir = extract_dir)
+}
+
+# ---- Identify data files ----
+# The extracted folder contains multiple patient files plus README and Index.
+all_files <- list.files(extract_dir, full.names = TRUE)
+data_files <- all_files[!basename(all_files) %in% c("README", "Index")]
+
+stopifnot(length(data_files) > 0)
+
+# ---- Read and combine ----
+# Each file contains: Date (MM-DD-YYYY), Time (HH:MM), Code, Value (tab-separated).
+read_one <- function(path) {
+  tibble(
+    patient_file = basename(path)
+  ) %>%
+    mutate(raw = list(readr::read_tsv(
+      path,
+      col_names = c("date_str", "time_str", "code", "value"),
+      col_types = "ccid",
+      progress = FALSE
+    ))) %>%
+    tidyr::unnest(cols = c(raw)) %>%
+    mutate(
+      patient_id = patient_file,
+      date = mdy(date_str),
+      time = hm(time_str),
+      datetime = as.POSIXct(paste(date, time_str), tz = "UTC")
+    ) %>%
+    select(patient_id, date, time_str, code, value, datetime)
+}
+
+diabetes_raw <- purrr::map_dfr(data_files, read_one) %>%
+  arrange(patient_id, datetime)
+
+# Basic checks
+glimpse(diabetes_raw)
+summary(diabetes_raw$value)
+```
+
+# Step 1: Create Training and Test Datasets Without Leakage
+
+Because these records are time-stamped, a chronological split is used to better reflect generalization to future observations.  The most recent 20% of timestamps are assigned to the test set.
+
+```{r split-train-test, message=FALSE, warning=FALSE}
+set.seed(8501)
+
+# Determine split point by datetime quantile
+split_point <- quantile(diabetes_raw$datetime, probs = 0.80, na.rm = TRUE)
+
+train_df <- diabetes_raw %>% filter(datetime <= split_point)
+test_df  <- diabetes_raw %>% filter(datetime >  split_point)
+
+c(n_train = nrow(train_df), n_test = nrow(test_df))
+```
+
+# Step 2: Extract a New Variable from an Existing Variable
+
+The original dataset includes **Date** and **Time** fields.  Two new time-derived variables are extracted:
+
+- **month**: captures seasonality and calendar effects.  
+- **hour**: captures diurnal patterns (for example, meals, bedtime, and scheduled measurements).
+
+These are derived by parsing existing fields and therefore do not require sharing information across observations.
+
+```{r step2-extract, message=FALSE, warning=FALSE}
+extract_time_features <- function(df) {
+  df %>%
+    mutate(
+      month = month(date, label = TRUE, abbr = TRUE),
+      hour  = as.integer(substr(time_str, 1, 2)),
+      wday  = wday(date, label = TRUE, abbr = TRUE)
+    )
+}
+
+train_df2 <- extract_time_features(train_df)
+test_df2  <- extract_time_features(test_df)
+
+train_df2 %>%
+  count(month) %>%
+  arrange(desc(n)) %>%
+  head(10) %>%
+  kable(caption = "Training Set: Record Count by Month") %>%
+  kable_styling(full_width = FALSE)
+```
+
+# Step 3: Create a Quantitative Mixture of Variables
+
+A quantitative mixture (interaction-style feature) is engineered to represent how measurement **value** behaves across time.  The feature:
+
+- **value_x_hour = value × hour**
+
+This captures whether values tend to be systematically higher or lower at certain hours (for example, around meals).  Interaction-style features are a standard way to represent combined effects that may not be well-modeled by additive terms alone. 
+
+```{r step3-mixture, message=FALSE, warning=FALSE}
+make_mixture_features <- function(df) {
+  df %>%
+    mutate(
+      value_x_hour = value * hour
+    )
+}
+
+train_df3 <- make_mixture_features(train_df2)
+test_df3  <- make_mixture_features(test_df2)
+
+train_df3 %>%
+  summarize(
+    value_mean = mean(value, na.rm = TRUE),
+    value_x_hour_mean = mean(value_x_hour, na.rm = TRUE)
+  ) %>%
+  kable(caption = "Training Set: Means for Value and Value×Hour") %>%
+  kable_styling(full_width = FALSE)
+```
+
+# Step 4: Collapse a Factor Level Variable
+
+The **code** variable has many levels, representing different clinical events and measurements (for example, insulin doses, glucose measurements, meal indicators, exercise indicators).  High-cardinality categorical variables can be difficult to interpret and can lead to sparse representations in modeling.  Therefore, the code levels are collapsed into a smaller set of clinically meaningful groups.
+
+The grouping below follows the code descriptions provided by UCI (e.g., insulin dose codes 33–35, glucose measurement codes 48 and 57–64, and event markers 65–72). 
+
+```{r step4-collapse, message=FALSE, warning=FALSE}
+collapse_code <- function(df) {
+  df %>%
+    mutate(
+      code = as.integer(code),
+      code_group = case_when(
+        code %in% c(33, 34, 35) ~ "Insulin_Dose",
+        code %in% c(48, 57, 58, 59, 60, 61, 62, 63, 64) ~ "Glucose_Measure",
+        code %in% c(65) ~ "Hypoglycemia_Symptoms",
+        code %in% c(66, 67, 68) ~ "Meal_Intake",
+        code %in% c(69, 70, 71) ~ "Exercise",
+        code %in% c(72) ~ "Special_Event",
+        TRUE ~ "Other"
+      ),
+      code_group = factor(code_group)
+    )
+}
+
+train_df4 <- collapse_code(train_df3)
+test_df4  <- collapse_code(test_df3)
+
+train_df4 %>%
+  count(code_group) %>%
+  arrange(desc(n)) %>%
+  kable(caption = "Training Set: Collapsed Code Groups") %>%
+  kable_styling(full_width = FALSE)
+```
+
+# Step 1 (continued): Fit-Then-Apply Transformations to Avoid Leakage
+
+Some transformations learn parameters from the data.  To prevent leakage, parameters are estimated on the training set and then applied to the test set.
+
+In this report, **z-score standardization** is used for the continuous fields:
+
+- `value`
+- `value_x_hour`
+
+## Train-only parameter estimation
+
+```{r train-only-params, message=FALSE, warning=FALSE}
+scale_params <- train_df4 %>%
+  summarize(
+    value_mean = mean(value, na.rm = TRUE),
+    value_sd   = sd(value, na.rm = TRUE),
+    vxh_mean   = mean(value_x_hour, na.rm = TRUE),
+    vxh_sd     = sd(value_x_hour, na.rm = TRUE)
+  )
+
+scale_params %>%
+  kable(caption = "Training Set: Scaling Parameters (Estimated on Train Only)") %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Apply the same parameters to both train and test
+
+```{r apply-scaling, message=FALSE, warning=FALSE}
+apply_scaling <- function(df, params) {
+  df %>%
+    mutate(
+      value_z = (value - params$value_mean) / params$value_sd,
+      value_x_hour_z = (value_x_hour - params$vxh_mean) / params$vxh_sd
+    )
+}
+
+train_final <- apply_scaling(train_df4, scale_params)
+test_final  <- apply_scaling(test_df4, scale_params)
+
+train_final %>% select(value, value_z, value_x_hour, value_x_hour_z) %>% head(5) %>%
+  kable(caption = "Preview: Scaled Features in the Training Set") %>%
+  kable_styling(full_width = FALSE)
+```
+
+# Step 5: Discussion and Justifications for Feature Engineering
+
+The feature engineering choices were designed to be (a) interpretable, (b) consistent with the dataset documentation, and (c) safe with respect to leakage.
+
+- **Extracted variables (month, hour, weekday)** encode temporal structure that is directly implied by the recorded timestamps.  This is appropriate in time-stamped clinical monitoring where behavioral routines and measurement schedules are time-dependent.  
+- **Quantitative mixture (value × hour)** represents a combined effect that may capture systematic patterns across the day (for example, higher glucose-related values near meal times).  Similar predictive studies using diabetes data emphasize the importance of feature construction and interaction-like signals for improving performance.   
+- **Collapsed code groups** reduce sparsity and improve interpretability by mapping granular event codes into clinically meaningful categories aligned with the provided codebook.   
+
+EDA theory emphasizes that feature generation should be guided by investigating patterns in the data and by understanding what the variables represent in context. 
+
+# Step 6: Importance of Applying the Same Transformations to Test Data
+
+It is crucial to apply the **same feature engineering transformations** to the test dataset because the trained model expects inputs in the same representation and scale that it learned from during training.  If the test set is transformed differently, model performance estimates become unreliable and may not reflect real-world generalization.
+
+Additionally, any transformation that estimates parameters (means, standard deviations, or other fitted values) must be computed using training data only.  Estimating these parameters on the full dataset (or the test set) leaks information about the test distribution into training, inflating performance and undermining validity.  The broader missing-data and preprocessing literature similarly emphasizes principled separation of estimation and evaluation to support generalizable inference. 
+
+# Step 7: Summary of Feature Engineering
+
+Across the training and test datasets, the following feature engineering operations were completed:
+
+1. **Training/test split without leakage** using a chronological split on the timestamp.  
+2. **Extraction of new variables** from existing time fields: `month`, `hour`, and `weekday`.  
+3. **Quantitative mixture feature**: `value_x_hour = value × hour`.  
+4. **Collapsed factor variable**: `code_group`, combining many code levels into a smaller set of meaningful categories.  
+5. **Train-only parameter estimation** for scaling, then consistent application to test data.
+
+These steps improved interpretability and created model-ready features while maintaining methodological integrity by preventing information leakage.
+
+# Step 8: Knitting Instructions
+
+To generate your submission file:
+
+- In **RStudio**, open this `.Rmd` file.  
+- Click **Knit** and choose **PDF** or **HTML** output.  
+- Submit the knitted report and the `.Rmd` file as required.
+
+# References
+
+American Diabetes Association.  (2024).  *Standards of care in diabetes—2024*.  *Diabetes Care, 47*(Supplement_1).  
+
+Carpenter, J. R., & Smuk, M.  (2021).  Missing data: A statistical framework for practice.  *Biometrika*, 108(3), 1–19. 
+
+Kahn, M.  (n.d.).  *Diabetes* [Dataset].  UCI Machine Learning Repository.  https://doi.org/10.24432/C5T59G. 
+
+Little, R. J. A., & Rubin, D. B.  (2019).  *Statistical analysis with missing data* (3rd ed.).  Wiley. 
+
+Naz, H., Ahuja, S., & Deepa, S.  (2020).  Deep learning approach for diabetes prediction using PIMA dataset.  *Journal of Healthcare Engineering*, 2020, 1–10. 
+
+Tukey, J. W.  (1977).  *Exploratory data analysis*.  Addison-Wesley. 

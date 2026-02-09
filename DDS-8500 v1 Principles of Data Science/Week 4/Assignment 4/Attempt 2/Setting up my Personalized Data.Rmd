@@ -1,0 +1,96 @@
+---
+title: "Creating your Personal Data"
+output: html_document
+date: "2025-04-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Your Personal Data
+
+Using this code you will be able to randomize data from the initial dataset, and create your own personalized data to complete your assignemnts in week 4,5,6,7.
+
+The file that you will create will randomize based on your personal information and save the data in to file "my_data.csv" and then save the file in your directory that you determine to use for your work.
+
+Once you run your code, go to your folder and verify that the file is created without altering the file.
+
+```{r install}
+# Install and load necessary libraries
+#install.packages("ggplot2") # Install ggplot2 for plotting, if you have already installed the packages, comment this out by enterring a # in front of this command
+#install.packages("scales")  # Install scales for formatting
+#install.packages("moments") # Install moments for skewness and kurtosis
+library(ggplot2)            # Load ggplot2 library
+library(scales)             # Load scales library
+
+```
+
+## Setting up your directory in your computer
+
+
+
+```{r Dir}
+# Check the current working directory
+getwd()
+
+# in the next line, change the directory to the place where you saved the
+# data file, if you prefer you can save your data.csv file in the directory
+# that command 7 indicated.
+# for example your next line should like something similar to this: setwd("C:/Users/tsapara/Documents")
+
+# Set the working directory to where the data file is located
+# This ensures the program can access the file correctly
+
+setwd("C:/Users/ITsapara/Downloads")
+
+### Choose an already existing directory in your computer.
+
+```
+
+## Reading the Generic data set up and creating the personalized data
+
+Follow the instructions and set up your file. Once done verify that the file has been created on the corresponding directory.
+
+- df is your dataframe.
+
+- file = "my_data.csv" specifies the output file name.
+
+- row.names = FALSE tells R not to save row numbers as a separate column (which is usually what you want).
+
+```{r Read}
+##########################################################
+# Read the CSV file
+# The header parameter ensures column names are correctly read
+# sep defines the delimiter (comma in this case)
+# stringsAsFactors prevents automatic conversion of strings to factors
+df <- read.csv("data.csv", header = TRUE, sep = ",", stringsAsFactors = TRUE)
+
+##########################################################
+# Define variables A and B based on your student ID
+# A represents the first 3 digits, B represents the last 3 digits
+A <- 34
+B <- 99
+Randomizer <- A + B # Randomizer ensures a consistent seed value for reproducibility
+
+###########################################################
+# Generate a random sample of 500 rows from the dataset
+set.seed(Randomizer) # Set the seed for reproducibility
+sample_size <- 500
+df <- df[sample(nrow(df), sample_size, replace = TRUE), ] # Sample the dataset
+
+write.csv(df, file = "my_data.csv", row.names = FALSE) # this command may take some time to run once it is done, it will create the desired data file locally in your directory
+
+
+```
+
+## Knit your file
+
+As practice, you may want now to knit your file in an html. To do this, you should click on the knit button on the top panel, and wait for the rendering file. The HTML will open once it is done for you to review.
+
+It is recommended to practice with RMD and download and review the following cheatsheets: https://rmarkdown.rstudio.com/lesson-15.HTML
+
+In addition, you may want to alter some of the editor components and re-knit your file to gain some knowledge and understanding of RMD.
+For a complete tutorial, visit: https://rmarkdown.rstudio.com/lesson-2.html
+
+

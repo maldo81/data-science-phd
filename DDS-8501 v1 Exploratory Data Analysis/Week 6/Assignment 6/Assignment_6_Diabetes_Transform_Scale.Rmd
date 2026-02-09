@@ -1,0 +1,420 @@
+---
+title: "Assignment 6: Generate and Apply Transformations and Scaling"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+fontsize: 12pt
+geometry: margin=1in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+<div align="center">
+
+**Assignment 6: Generate and Apply Transformations and Scaling**  
+
+Juan Maldonado Franco  
+Department of Technology, National University  
+DDS-8500: Principles of Data Science  
+Dr. Javier E. León  
+February 2, 2026  
+
+</div>
+
+\newpage
+
+# Background
+
+This report continues the exploratory data analysis (EDA) process using the Diabetes dataset (UCI Machine Learning Repository, Dataset ID 34).  The focus of this assignment is to prepare data for predictive modeling by (a) splitting the data into training and test sets, (b) selecting and applying transformations using training data only (to prevent information leakage), and (c) applying min–max scaling using training-derived parameters.
+
+# Step 0: Reproducible Data Acquisition and Loading (Assignment 4 Dataset)
+
+Because this submission is graded independently, the workflow below is fully reproducible: it checks whether the dataset is present locally; if not, it downloads and extracts it; then it loads the cleaned analytic dataset produced in Assignment 4 (or recreates an equivalent analytic table from the raw files if the cleaned file is not found).
+
+## 0.1 Create folders
+
+```{r folders}
+dir.create("data", showWarnings = FALSE)
+dir.create(file.path("data","raw"), showWarnings = FALSE)
+dir.create(file.path("data","processed"), showWarnings = FALSE)
+```
+
+## 0.2 Download and extract UCI Diabetes dataset (if needed)
+
+```{r download-extract}
+# Primary (new-style) UCI download link (zip)
+uci_zip_url <- "https://archive.ics.uci.edu/static/public/34/diabetes.zip"
+
+# Local paths
+zip_path <- file.path("data","raw","diabetes.zip")
+extract_dir <- file.path("data","raw","diabetes")
+
+# Download + extract only if extract_dir doesn't already exist
+if (!dir.exists(extract_dir)) {
+  message("Raw dataset not found.  Downloading from UCI...")
+
+  # download zip (binary mode for Windows)
+  tryCatch({
+    download.file(uci_zip_url, destfile = zip_path, mode = "wb", quiet = TRUE)
+  }, error = function(e) {
+    stop("Download failed.  Check internet connection or URL.  Error: ", e$message)
+  })
+
+  dir.create(extract_dir, showWarnings = FALSE, recursive = TRUE)
+
+  # unzip
+  tryCatch({
+    unzip(zip_path, exdir = extract_dir)
+  }, error = function(e) {
+    stop("Unzip failed.  Error: ", e$message)
+  })
+
+  message("Download and extraction complete.")
+} else {
+  message("Raw dataset already exists locally.  Skipping download.")
+}
+
+# List extracted files (for verification)
+list.files(extract_dir, recursive = TRUE)
+```
+
+## 0.3 Load Assignment 4 cleaned dataset (preferred)
+
+The preferred input for this assignment is the cleaned analytic dataset created in Assignment 4.  If it exists in `data/processed/`, it will be loaded directly.
+
+```{r load-assignment4}
+clean_path <- file.path("data","processed","my_data.csv")  # <-- update if your Assignment 4 output name differs
+
+if (file.exists(clean_path)) {
+  df <- read.csv(clean_path, stringsAsFactors = FALSE)
+  message("Loaded Assignment 4 cleaned dataset: ", clean_path)
+} else {
+  message("Assignment 4 cleaned file not found at: ", clean_path)
+  message("Creating an equivalent analytic dataset from raw UCI files (fallback).")
+}
+```
+
+## 0.4 Fallback: Create analytic dataset from raw UCI files (if Assignment 4 file is missing)
+
+The raw UCI Diabetes dataset is stored as multiple patient/event text files (date, time, code, value).  For a predictive-ready, tabular dataset, this fallback routine aggregates each patient file into a single row of summary features (e.g., glucose summary statistics and insulin totals).  This produces a reproducible dataset comparable to the type of processed table typically created during earlier cleaning steps.
+
+```{r build-fallback, eval=TRUE}
+if (!exists("df")) {
+
+  # Helper: read one patient file (tab-separated fields)
+  read_patient_file <- function(path) {
+    # Read as tab-separated; some files may have variable whitespace
+    raw <- tryCatch(
+      read.table(path, header = FALSE, sep = "\t", quote = "", stringsAsFactors = FALSE, fill = TRUE),
+      error = function(e) NULL
+    )
+    if (is.null(raw) || ncol(raw) < 4) return(NULL)
+
+    names(raw)[1:4] <- c("date","time","code","value")
+    raw$code <- suppressWarnings(as.integer(raw$code))
+    raw$value <- suppressWarnings(as.numeric(raw$value))
+    raw
+  }
+
+  # Find candidate data files (exclude README/Index if present)
+  all_files <- list.files(extract_dir, recursive = TRUE, full.names = TRUE)
+  data_files <- all_files[!grepl("README|Index", basename(all_files), ignore.case = TRUE)]
+
+  # Keep text-like files only (many UCI sets store without extension; keep all non-empty)
+  data_files <- data_files[file.info(data_files)$size > 0]
+
+  # Build per-file summaries
+  summaries <- lapply(data_files, function(f) {
+    dat <- read_patient_file(f)
+    if (is.null(dat)) return(NULL)
+
+    # Blood glucose codes (per dataset description): 48,57,58,59,60,61,62,63,64
+    bg_codes <- c(48,57,58,59,60,61,62,63,64)
+    bg <- dat$value[dat$code %in% bg_codes]
+
+    # Insulin codes: 33,34,35
+    reg_ins <- sum(dat$value[dat$code == 33], na.rm = TRUE)
+    nph_ins <- sum(dat$value[dat$code == 34], na.rm = TRUE)
+    ult_ins <- sum(dat$value[dat$code == 35], na.rm = TRUE)
+
+    out <- data.frame(
+      patient_file = basename(f),
+      n_events = nrow(dat),
+      n_bg = sum(dat$code %in% bg_codes, na.rm = TRUE),
+      bg_mean = ifelse(length(bg) > 0, mean(bg, na.rm = TRUE), NA_real_),
+      bg_sd   = ifelse(length(bg) > 1, sd(bg, na.rm = TRUE), NA_real_),
+      bg_min  = ifelse(length(bg) > 0, min(bg, na.rm = TRUE), NA_real_),
+      bg_max  = ifelse(length(bg) > 0, max(bg, na.rm = TRUE), NA_real_),
+      insulin_regular_total = reg_ins,
+      insulin_nph_total = nph_ins,
+      insulin_ultralente_total = ult_ins
+    )
+    out
+  })
+
+  df <- do.call(rbind, summaries)
+  df <- df[complete.cases(df$patient_file), , drop = FALSE]
+
+  # Save for reproducibility (so the grader can re-run without re-aggregating)
+  write.csv(df, file.path("data","processed","my_data.csv"), row.names = FALSE)
+  message("Saved fallback processed dataset to data/processed/my_data.csv")
+}
+
+# Basic checks
+dim(df)
+str(df)
+summary(df)
+```
+
+# Step 1: Randomly Split Data into Training and Test Sets (80/20)
+
+```{r split-data}
+set.seed(1234)  # required for replicability
+
+n <- nrow(df)
+train_idx <- sample(seq_len(n), size = floor(0.80 * n))
+
+train <- df[train_idx, , drop = FALSE]
+test  <- df[-train_idx, , drop = FALSE]
+
+dim(train)
+dim(test)
+```
+
+# Step 2: Evaluate Transformations for Quantitative Variables (Training Only)
+
+Quantitative variables are identified and examined for distribution shape.  Transformation decisions are made using the training set only to avoid leakage.
+
+```{r identify-quant}
+num_cols <- names(train)[sapply(train, is.numeric)]
+num_cols
+```
+
+## Distribution diagnostics (training set only)
+
+```{r dist-plots, fig.height=10, fig.width=8}
+par(mfrow = c(2, 2))
+
+vars_to_plot <- head(num_cols, 4)  # keep output readable
+
+for (v in vars_to_plot) {
+  x <- train[[v]]
+  x <- x[is.finite(x)]
+
+  hist(x, main = paste("Train Histogram:", v), xlab = v, col = "gray")
+  qqnorm(x, main = paste("Train Q-Q:", v))
+  qqline(x, col = "red")
+}
+par(mfrow = c(1, 1))
+```
+
+## Fit transformations using training data only
+
+This report uses power transformations estimated from the training data only:
+
+- If a variable is strictly positive, a Box–Cox-type power transform is estimated.
+- If a variable includes zeros/negatives, a Yeo–Johnson power transform is used.
+
+```{r fit-transform}
+require(car)
+
+transform_params <- list()
+
+choose_and_fit_transform <- function(x_train) {
+  x_train <- x_train[is.finite(x_train)]
+
+  # Skip if too few unique values or constant
+  if (length(unique(x_train)) < 10) return(list(method="none", family=NA, lambda=NA))
+  if (sd(x_train, na.rm = TRUE) == 0) return(list(method="none", family=NA, lambda=NA))
+
+  if (all(x_train > 0, na.rm = TRUE)) {
+    lam <- powerTransform(x_train)$lambda
+    return(list(method="power", family="boxcox", lambda=lam))
+  } else {
+    lam <- powerTransform(x_train, family="yjPower")$lambda
+    return(list(method="power", family="yeojohnson", lambda=lam))
+  }
+}
+
+apply_transform <- function(x, param) {
+  if (param$method == "none") return(x)
+
+  if (param$family == "boxcox") {
+    # Ensure positivity (guard against rare out-of-range values in test)
+    x2 <- x
+    minx <- suppressWarnings(min(x2, na.rm = TRUE))
+    if (is.finite(minx) && minx <= 0) x2 <- x2 + abs(minx) + 1e-6
+    return(x2 ^ param$lambda)
+  }
+
+  if (param$family == "yeojohnson") {
+    return(yjPower(x, lambda = param$lambda))
+  }
+
+  x
+}
+
+# Fit parameters on training only
+for (v in num_cols) {
+  transform_params[[v]] <- choose_and_fit_transform(train[[v]])
+}
+
+transform_params
+```
+
+# Step 3: Apply Transformations to the Training Data
+
+```{r transform-train}
+train_t <- train
+
+for (v in num_cols) {
+  train_t[[v]] <- apply_transform(train_t[[v]], transform_params[[v]])
+}
+
+summary(train_t[num_cols])
+```
+
+# Step 4: Apply the Same Transformations to the Test Data
+
+```{r transform-test}
+test_t <- test
+
+for (v in num_cols) {
+  test_t[[v]] <- apply_transform(test_t[[v]], transform_params[[v]])
+}
+
+summary(test_t[num_cols])
+```
+
+## Post-transformation diagnostics (training)
+
+```{r dist-plots-after, fig.height=10, fig.width=8}
+par(mfrow = c(2, 2))
+vars_to_plot <- head(num_cols, 4)
+
+for (v in vars_to_plot) {
+  x <- train_t[[v]]
+  x <- x[is.finite(x)]
+
+  hist(x, main = paste("Transformed Train Histogram:", v), xlab = v, col = "gray")
+  qqnorm(x, main = paste("Transformed Train Q-Q:", v))
+  qqline(x, col = "red")
+}
+par(mfrow = c(1, 1))
+```
+
+# Step 5: Min–Max Scaling on Training Data (0 to 1)
+
+Min–max scaling is fit using training data only:
+
+\[
+MM = \frac{x - \min(X_{train})}{\max(X_{train}) - \min(X_{train})}
+\]
+
+```{r minmax-train}
+minmax_params <- list()
+
+minmax_fit <- function(x_train) {
+  list(min = min(x_train, na.rm = TRUE), max = max(x_train, na.rm = TRUE))
+}
+
+minmax_apply <- function(x, params) {
+  mn <- params$min
+  mx <- params$max
+  if (!is.finite(mn) || !is.finite(mx) || mx == mn) return(rep(0, length(x)))
+  (x - mn) / (mx - mn)
+}
+
+# Fit scaling params on transformed training set only
+for (v in num_cols) {
+  minmax_params[[v]] <- minmax_fit(train_t[[v]])
+}
+
+train_s <- train_t
+for (v in num_cols) {
+  train_s[[v]] <- minmax_apply(train_s[[v]], minmax_params[[v]])
+}
+
+summary(train_s[num_cols])
+```
+
+# Step 6: Apply Training-Fit Scaling to the Test Set
+
+```{r minmax-test}
+test_s <- test_t
+for (v in num_cols) {
+  test_s[[v]] <- minmax_apply(test_s[[v]], minmax_params[[v]])
+}
+
+summary(test_s[num_cols])
+```
+
+## Scaling range check
+
+```{r scaling-check}
+range_check <- data.frame(
+  variable = num_cols,
+  train_min = sapply(train_s[num_cols], function(x) min(x, na.rm = TRUE)),
+  train_max = sapply(train_s[num_cols], function(x) max(x, na.rm = TRUE)),
+  test_min  = sapply(test_s[num_cols],  function(x) min(x, na.rm = TRUE)),
+  test_max  = sapply(test_s[num_cols],  function(x) max(x, na.rm = TRUE))
+)
+
+range_check
+```
+
+# Step 7: Interpretability of Variables for Forecasting (Discussion)
+
+Transformations and scaling can improve predictive modeling while changing interpretability:
+
+- **Transformations** improve distribution shape (e.g., reducing skewness and stabilizing variance).  This often helps algorithms learn more stable relationships and reduces the influence of extreme values.  However, transformed variables are no longer in original units, so the meaning of a “one-unit” change becomes less intuitive.
+
+- **Min–max scaling** makes variables comparable on a common 0–1 range, which is especially important for methods sensitive to magnitude (e.g., regularized regression, neural networks, and distance-based learning).  Scaling improves numerical stability but shifts interpretation from absolute units to relative position within the training range.
+
+In forecasting contexts, these preprocessing steps typically increase model robustness and comparability at the cost of direct real-world unit interpretation.  When interpretability in original units is required, results can be explained using back-transforms or by focusing on feature importance rankings rather than raw coefficient magnitudes.
+
+# Step 8: Importance of Transformations and Scaling (Discussion)
+
+Transformations and scaling are essential components of predictive data preparation:
+
+1. **Performance and stability**: Many predictive methods benefit when inputs have stabilized variance and reduced skewness, improving fit and reducing undue influence of outliers.
+2. **Fair contribution of predictors**: For non-scale-invariant models, scaling prevents variables with larger numeric ranges from dominating optimization and distance calculations.
+3. **Valid model evaluation**: Deriving transformation and scaling parameters from training data only prevents information leakage and supports an honest estimate of generalization performance on the test set.
+
+These practices reflect EDA principles of diagnosing distributional issues and improving data quality prior to modeling (Tukey, 1977), while maintaining sound methodology for missing data and preprocessing (Little & Rubin, 2019).
+
+# Step 9: Summary of Data Preprocessing
+
+This assignment implemented a reproducible preprocessing pipeline:
+
+- Verified raw data availability; downloaded and extracted the UCI Diabetes dataset if needed.
+- Loaded the cleaned analytic dataset from Assignment 4 (or created an equivalent processed table from raw files as a reproducible fallback).
+- Split the dataset into **80% training** and **20% test** sets using a fixed seed.
+- Evaluated quantitative variables in the training set and estimated power transformations using training data only.
+- Applied the same transformations to the test set (no leakage).
+- Fit min–max scaling using transformed training data only and applied it to both training and test sets.
+- Produced diagnostics and summary checks showing preprocessing results.
+
+# Step 10: Knitting Instructions
+
+1. Save this file as `Assignment_6_Diabetes_Transform_Scale.Rmd`
+2. Open in RStudio.
+3. Click **Knit** and select **HTML** or **PDF**.
+4. If knitting to PDF, ensure a LaTeX distribution is installed (e.g., TinyTeX).
+
+# References
+
+Box, G. E. P., & Cox, D. R. (1964). An analysis of transformations. *Journal of the Royal Statistical Society: Series B (Methodological), 26*(2), 211–243.
+
+Little, R. J. A., & Rubin, D. B. (2019). *Statistical analysis with missing data* (3rd ed.). Wiley. https://doi.org/10.1002/9781119482260
+
+Tukey, J. W. (1977). *Exploratory data analysis*. Addison-Wesley.
+
+UCI Machine Learning Repository. (n.d.). *Diabetes* [Dataset]. https://doi.org/10.24432/C5T59G

@@ -1,0 +1,211 @@
+---
+title: ""
+output:
+  pdf_document:
+    toc: false
+    number_sections: false
+  html_document:
+    toc: true
+    toc_depth: 2
+fontsize: 12pt
+geometry: margin=1in
+header-includes:
+  - \usepackage{setspace}
+  - \doublespacing
+  - \usepackage{times}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+
+pkgs <- c("tidyverse", "janitor", "moments", "knitr")
+to_install <- pkgs[!pkgs %in% installed.packages()[, "Package"]]
+if(length(to_install) > 0) install.packages(to_install)
+
+library(tidyverse)
+library(janitor)
+library(moments)
+library(knitr)
+```
+
+<div align="center">
+
+**Assignment 5: Generate and Interpret Descriptive Statistics**  
+
+Juan Maldonado Franco  
+Department of Technology, National University  
+DDS-8500: Principles of Data Science  
+Dr. Javier E. León  
+February 1, 2026  
+
+</div>
+
+\newpage
+
+# Data Source and Purpose
+
+This report continues the Exploratory Data Analysis (EDA) process using the New York City Leading Causes of Death dataset from NYC Open Data.  The objective is to generate and interpret univariate and bivariate descriptive statistics to better understand distributions, relationships, and potential data quality issues prior to modeling.
+
+# Step 1: Load Data and Select Variables
+
+```{r load-data}
+data_path <- "/mnt/data/New_York_City_Leading_Causes_of_Death_20260201.csv"
+
+raw <- read.csv(data_path, stringsAsFactors = FALSE)
+
+df <- raw %>% 
+  clean_names()
+
+glimpse(df)
+```
+
+## Data cleaning
+
+```{r clean-data}
+df <- df %>%
+  mutate(
+    deaths = na_if(deaths, "."),
+    death_rate = na_if(death_rate, "."),
+    age_adjusted_death_rate = na_if(age_adjusted_death_rate, "."),
+    deaths = as.numeric(deaths),
+    death_rate = as.numeric(death_rate),
+    age_adjusted_death_rate = as.numeric(age_adjusted_death_rate),
+    year = as.integer(year),
+    sex = as.factor(sex),
+    race_ethnicity = as.factor(race_ethnicity),
+    leading_cause = as.factor(leading_cause)
+  )
+
+sapply(df, function(x) mean(is.na(x)))
+```
+
+## Variable selection
+
+Quantitative variables:
+- Deaths  
+- Age Adjusted Death Rate  
+
+Qualitative variables:
+- Sex  
+- Race/Ethnicity  
+
+# Step 2: Univariate Descriptive Statistics (Quantitative)
+
+```{r univariate-helper}
+univariate_quant <- function(x) {
+  x <- x[!is.na(x)]
+  tibble(
+    n = length(x),
+    mean = mean(x),
+    median = median(x),
+    sd = sd(x),
+    variance = var(x),
+    min = min(x),
+    max = max(x),
+    range = max(x) - min(x),
+    q1 = quantile(x, 0.25),
+    q3 = quantile(x, 0.75),
+    iqr = IQR(x),
+    skewness = skewness(x),
+    kurtosis = kurtosis(x)
+  )
+}
+```
+
+## Deaths
+
+```{r deaths-stats}
+kable(univariate_quant(df$deaths), digits = 3)
+```
+
+### Interpretation
+
+Discuss center, variability, skewness, kurtosis, and implications for normality.
+
+## Age Adjusted Death Rate
+
+```{r aadr-stats}
+kable(univariate_quant(df$age_adjusted_death_rate), digits = 3)
+```
+
+### Interpretation
+
+Discuss center, variability, skewness, kurtosis, and implications for normality.
+
+# Step 3: Univariate Descriptive Statistics (Qualitative)
+
+## Sex
+
+```{r sex-frequency}
+df %>% 
+  count(sex) %>% 
+  mutate(percent = n / sum(n) * 100) %>% 
+  kable(digits = 2)
+```
+
+## Race/Ethnicity
+
+```{r race-frequency}
+df %>% 
+  count(race_ethnicity) %>% 
+  mutate(percent = n / sum(n) * 100) %>% 
+  kable(digits = 2)
+```
+
+# Step 4: Bivariate Statistics
+
+## Correlation Matrix
+
+```{r correlation-matrix}
+quant_df <- df %>%
+  select(deaths, death_rate, age_adjusted_death_rate)
+
+cor_mat <- cor(quant_df, use = "pairwise.complete.obs")
+kable(round(cor_mat, 3))
+```
+
+## Crosstabs and Chi-Square Tests
+
+```{r crosstabs}
+top_causes <- df %>%
+  group_by(leading_cause) %>%
+  summarize(total_deaths = sum(deaths, na.rm = TRUE)) %>%
+  arrange(desc(total_deaths)) %>%
+  slice(1:6) %>%
+  pull(leading_cause)
+
+df <- df %>%
+  mutate(cause_group = ifelse(leading_cause %in% top_causes,
+                              as.character(leading_cause),
+                              "Other"),
+         cause_group = as.factor(cause_group))
+
+tab_sex_cause <- table(df$sex, df$cause_group)
+addmargins(tab_sex_cause)
+
+chisq.test(tab_sex_cause)
+```
+
+# Step 5: Interpretation of Descriptive and Bivariate Statistics
+
+Interpret univariate statistics for quantitative variables and explain correlations and crosstab results, including strength, direction, and statistical significance.
+
+# Step 6: Importance of Statistics and Visualizations in EDA
+
+Discuss how numerical summaries and visualizations complement one another in identifying structure, variability, and relationships in data.
+
+# Step 7: Summary of EDA Findings
+
+Summarize key insights, justify variable selection, and explain how each statistical method contributed to understanding the data.
+
+# References
+
+Tukey, J. W. (1977). *Exploratory data analysis*. Addison-Wesley.  
+
+Preston, S. H., Elo, I. T., & Stewart, Q. (2014). Anatomy of a municipal triumph: New York City’s upsurge in life expectancy. *Population and Development Review, 40*(1), 1–29.  
+
+van Buuren, S. (2018). *Flexible imputation of missing data* (2nd ed.). Chapman & Hall/CRC.

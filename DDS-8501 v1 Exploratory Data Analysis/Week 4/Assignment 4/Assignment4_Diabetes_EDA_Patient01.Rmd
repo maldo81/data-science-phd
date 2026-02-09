@@ -1,0 +1,436 @@
+---
+title: "Assignment 4: Generate and Interpret Multivariate Graphs of Data"
+subtitle: "Diabetes Outpatient Records (AIM-94) — Patient 01 Case Study"
+author: "<Your Name>"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    df_print: paged
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Background and dataset
+
+This report continues the Exploratory Data Analysis (EDA) process from Assignment 1 by moving from **univariate** summaries (one variable at a time) to **multivariate** visualization (two or more variables together). The dataset comes from the AIM-94 diabetes outpatient records and is stored as event logs where each row is a timestamped clinical event (e.g., a glucose reading or an insulin dose).
+
+**Why a “Patient 01” case study?** The overall archive contains many patient files. For a focused multivariate EDA that remains readable and interpretable in a 5–7 page report, this analysis uses **data-01** (Patient 01). The same code can be reused for other patients by changing the filename.
+
+# Data import and preparation
+
+## Step 0: Extract the dataset (if needed)
+
+> If you already extracted the `diabetes-data.tar.Z` archive in Assignment 1, you can skip this section.
+
+```{r extract, eval=FALSE}
+# Reproducible data acquisition and extraction for UCI Diabetes dataset
+
+# One-time dependency (commented out for knitting)
+# install.packages("R.utils")
+
+library(R.utils)
+
+# ---- File locations ----
+uci_url   <- "https://archive.ics.uci.edu/static/public/34/diabetes.zip"
+zip_file  <- "diabetes.zip"
+z_file    <- "diabetes-data.tar.Z"
+tar_file  <- "diabetes-data.tar"
+
+# ---- Step 1: Download ZIP if missing ----
+if (!file.exists(zip_file)) {
+  message("Downloading diabetes.zip from UCI repository...")
+  download.file(uci_url, destfile = zip_file, mode = "wb")
+} else {
+  message("ZIP file already exists.")
+}
+
+# ---- Step 2: Unzip ZIP → .tar.Z ----
+if (!file.exists(z_file)) {
+  message("Unzipping diabetes.zip...")
+  unzip(zip_file)
+} else {
+  message(".tar.Z file already exists.")
+}
+
+# ---- Step 3: Decompress .tar.Z → .tar ----
+if (!file.exists(tar_file)) {
+  message("Decompressing .tar.Z archive...")
+  gunzip(z_file, destname = tar_file, remove = FALSE, overwrite = TRUE)
+} else {
+  message(".tar file already exists.")
+}
+
+# ---- Step 4: Extract .tar → working directory root ----
+# This will create the Diabetes-Data directory
+if (!dir.exists("Diabetes-Data")) {
+  message("Extracting diabetes-data.tar...")
+  utils::untar(tar_file, exdir = ".")
+} else {
+  message("Diabetes-Data directory already exists.")
+}
+
+# ---- Step 5: Verify ----
+message("Top-level contents of working directory:")
+print(list.files("."))
+
+message("Contents of Diabetes-Data directory (if present):")
+if (dir.exists("Diabetes-Data")) {
+  print(list.files("Diabetes-Data"))
+}
+```
+
+## Step 1: Read Patient 01 records
+
+Each record has 4 fields: **Date**, **Time**, **Code**, **Value**.
+
+```{r load-all-patients}
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(readr)
+
+data_dir <- "Diabetes-Data"
+
+patient_files <- list.files(
+  path = data_dir,
+  pattern = "^data-",
+  full.names = TRUE
+)
+
+raw_all <- lapply(patient_files, function(f) {
+
+  df <- read.delim(
+    f,
+    header = FALSE,
+    col.names = c("Date", "Time", "Code", "Value"),
+    colClasses = c("character", "character", "character", "character"),
+    stringsAsFactors = FALSE
+  )
+
+  df %>%
+    mutate(
+      patient_id = basename(f),
+      Code  = as.integer(parse_number(Code)),
+      Value = as.numeric(parse_number(Value)),
+      datetime = mdy(Date) + hm(Time),
+      date = as.Date(datetime)
+    )
+}) %>%
+  bind_rows()
+
+# Quick checks
+glimpse(raw_all)
+summary(raw_all$Value)
+sum(is.na(raw_all$Value))
+head(raw_all)
+```
+
+## Step 2: Decode the event codes
+
+```{r codebook}
+code_map <- c(
+  `33` = "insulin_regular",
+  `34` = "insulin_NPH",
+  `35` = "insulin_ultralente",
+  `48` = "bg_unspecified_48",
+  `57` = "bg_unspecified_57",
+  `58` = "bg_pre_breakfast",
+  `59` = "bg_post_breakfast",
+  `60` = "bg_pre_lunch",
+  `61` = "bg_post_lunch",
+  `62` = "bg_pre_supper",
+  `63` = "bg_post_supper",
+  `64` = "bg_pre_snack",
+  `65` = "hypo_symptoms",
+  `66` = "meal_typical",
+  `67` = "meal_more",
+  `68` = "meal_less",
+  `69` = "exercise_typical",
+  `70` = "exercise_more",
+  `71` = "exercise_less",
+  `72` = "special_event"
+)
+
+raw <- raw %>%
+  mutate(label = ifelse(as.character(Code) %in% names(code_map), code_map[as.character(Code)], paste0("code_", Code)))
+
+raw %>% count(label, sort = TRUE)
+```
+
+**Observation:** Patient 01 contains a limited subset of event types (primarily glucose readings at common times of day, regular/NPH insulin, and hypoglycemic symptoms). This is helpful for a clean multivariate analysis.
+
+## Step 3: Create an analysis-ready daily dataset
+
+For multivariate comparisons, it is often useful to summarize events into a consistent unit of analysis. Here, the unit is **day**, with:
+
+- mean glucose readings for each available measurement type (e.g., pre-breakfast)
+- total daily insulin dose by type
+- count of hypoglycemic symptom events
+
+```{r daily-summary}
+raw <- raw %>% mutate(date = as.Date(datetime))
+
+bg_labels  <- c("bg_pre_breakfast", "bg_pre_lunch", "bg_pre_supper", "bg_unspecified_48", "bg_unspecified_57")
+ins_labels <- c("insulin_regular", "insulin_NPH", "insulin_ultralente")
+
+# Convert hypo symptom rows to a 1 so that daily sums become event counts.
+raw2 <- raw %>%
+  mutate(Value2 = ifelse(label == "hypo_symptoms", 1L, Value))
+
+bg_daily <- raw2 %>%
+  filter(label %in% bg_labels) %>%
+  group_by(date, label) %>%
+  summarize(value = mean(Value2), .groups = "drop") %>%
+  pivot_wider(names_from = label, values_from = value)
+
+ins_daily <- raw2 %>%
+  filter(label %in% ins_labels) %>%
+  group_by(date, label) %>%
+  summarize(value = sum(Value2), .groups = "drop") %>%
+  pivot_wider(names_from = label, values_from = value)
+
+hypo_daily <- raw2 %>%
+  filter(label == "hypo_symptoms") %>%
+  group_by(date) %>%
+  summarize(hypo_symptoms = sum(Value2), .groups = "drop")
+
+daily <- bg_daily %>%
+  full_join(ins_daily, by = "date") %>%
+  full_join(hypo_daily, by = "date") %>%
+  arrange(date) %>%
+  mutate(
+    dow = weekdays(date),
+    weekend = ifelse(dow %in% c("Saturday", "Sunday"), "Weekend", "Weekday"),
+    month = format(date, "%Y-%m"),
+    bg_cat = case_when(
+      is.na(bg_pre_breakfast) ~ NA_character_,
+      bg_pre_breakfast < 70 ~ "Hypo (<70)",
+      bg_pre_breakfast <= 180 ~ "Target (70–180)",
+      TRUE ~ "Hyper (>180)"
+    )
+  )
+
+summary(daily)
+```
+
+## Missing data check
+
+A key reality of clinical event logs is that **not every variable is recorded every day**. That produces missing values that must be acknowledged in both plots and interpretations.
+
+```{r missingness}
+miss <- sapply(daily, function(x) mean(is.na(x)))
+miss[order(miss, decreasing = TRUE)]
+```
+
+**How missingness is handled in this EDA:**
+
+- For each visualization, ggplot will use **available-case data** (i.e., the rows needed for that specific plot).
+- In interpretations, correlations and trends are treated as **exploratory**, because missingness may not be random (e.g., a measurement may be taken more often on “problem days”).
+
+# Step 1: Pairs plot for quantitative variables
+
+## Pairs plot
+
+The goal of a pairs plot is to scan all numeric variables together for:
+
+- potential **linear/nonlinear relationships**
+- **clusters** or **outliers**
+- patterns that suggest follow-up questions
+
+```{r pairs-plot}
+library(GGally)
+
+quant_vars <- daily %>%
+  select(bg_pre_breakfast, bg_pre_lunch, bg_pre_supper, bg_unspecified_48,
+         insulin_regular, insulin_NPH, hypo_symptoms)
+
+GGally::ggpairs(
+  quant_vars,
+  upper = list(continuous = wrap("cor", use = "pairwise.complete.obs", digits = 2)),
+  lower = list(continuous = wrap("points", alpha = 0.6, size = 1)),
+  diag  = list(continuous = wrap("densityDiag", alpha = 0.4))
+)
+```
+
+## Correlation interpretation
+
+To support the visual scan, we compute pairwise correlations.
+
+```{r correlations}
+cor_mat <- cor(quant_vars, use = "pairwise.complete.obs")
+round(cor_mat, 2)
+```
+
+### Interpretation (what the pairs plot suggests)
+
+1. **Glucose readings are only moderately related across time-of-day.** For example, pre-breakfast and pre-lunch glucose may show a **positive** association, but the strength is not “perfect,” suggesting that day-to-day physiology, behavior, and treatment decisions vary.
+
+2. **Same-day insulin totals may show weak correlations with same-day glucose.** This is expected because insulin dosing is often a *response* to glucose (and also affects future glucose), so the relationship can be lagged and confounded.
+
+3. **Outliers are important.** If you see unusually high insulin totals or extreme glucose values, those points can dominate correlations and may represent special circumstances, logging artifacts, or clinically meaningful events.
+
+# Step 2: Four additional multivariate plots
+
+Below are four comparisons that each include a categorical variable and a quantitative or categorical variable. For each plot, colors/facets are used to emphasize group differences.
+
+```{r plots-setup}
+library(ggplot2)
+```
+
+## Plot 1 (Categorical × Quantitative): Pre-breakfast glucose by day-of-week
+
+```{r plot1}
+daily %>%
+  filter(!is.na(bg_pre_breakfast)) %>%
+  ggplot(aes(x = dow, y = bg_pre_breakfast, fill = weekend)) +
+  geom_boxplot(alpha = 0.5, outlier.alpha = 0.7) +
+  coord_flip() +
+  labs(
+    title = "Pre-breakfast blood glucose by day of week",
+    x = "Day of week",
+    y = "Pre-breakfast blood glucose (mg/dL)",
+    fill = "Day type"
+  )
+```
+
+### Plot 1 interpretation
+
+- This plot asks: **Do typical pre-breakfast glucose levels differ depending on the day of the week?**
+- Look for differences in **medians** (center lines) and **variability** (box/whisker heights).
+- If weekend distributions shift higher (or become more variable), it may suggest behavioral differences (sleep, meals, activity) affecting fasting glucose.
+
+## Plot 2 (Quantitative × Quantitative + Color): Regular insulin vs pre-breakfast glucose
+
+```{r plot2}
+daily %>%
+  filter(!is.na(bg_pre_breakfast)) %>%
+  ggplot(aes(x = insulin_regular, y = bg_pre_breakfast, color = month)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(
+    title = "Daily regular insulin vs pre-breakfast glucose",
+    x = "Total daily regular insulin (units)",
+    y = "Pre-breakfast blood glucose (mg/dL)",
+    color = "Month"
+  )
+```
+
+### Plot 2 interpretation
+
+- This plot asks: **Are higher regular insulin totals associated with lower pre-breakfast glucose?**
+- In observational self-management data, a strong negative trend is not guaranteed because:
+  - insulin may be increased *because* glucose is high (reverse causality)
+  - insulin effects can be time-lagged
+  - missingness can be informative (measurements recorded more on “bad” days)
+- The LOESS curve is used to highlight whether the relationship is roughly linear or changes across the dose range.
+
+## Plot 3 (Categorical × Categorical): BG category by weekend vs weekday (stacked percent bars)
+
+```{r plot3}
+daily %>%
+  filter(!is.na(bg_cat)) %>%
+  count(weekend, bg_cat) %>%
+  ggplot(aes(x = weekend, y = n, fill = bg_cat)) +
+  geom_col(position = "fill") +
+  labs(
+    title = "Pre-breakfast glucose category by weekend vs weekday",
+    x = "Day type",
+    y = "Percent of days",
+    fill = "BG category"
+  )
+```
+
+### Plot 3 interpretation
+
+- This plot asks: **Is the *mix* of glucose categories different on weekends?**
+- Because bars sum to 100%, you are comparing **proportions** rather than raw counts.
+- A higher “Hyper” proportion on weekends would suggest weekend days are more often associated with elevated fasting glucose (for this patient).
+
+## Plot 4 (Categorical × Quantitative + Facets): Glucose distributions by measurement type
+
+```{r plot4}
+long_bg <- daily %>%
+  select(date, month, bg_pre_breakfast, bg_pre_lunch, bg_pre_supper, bg_unspecified_48) %>%
+  pivot_longer(cols = starts_with("bg_"), names_to = "bg_type", values_to = "bg_value") %>%
+  filter(!is.na(bg_value))
+
+long_bg %>%
+  ggplot(aes(x = bg_value, fill = bg_type)) +
+  geom_density(alpha = 0.35, color = "black") +
+  facet_wrap(~ bg_type, scales = "free_y") +
+  labs(
+    title = "Glucose distributions by measurement type",
+    x = "Blood glucose (mg/dL)",
+    y = "Density",
+    fill = "Measurement type"
+  ) +
+  theme(legend.position = "none")
+```
+
+### Plot 4 interpretation
+
+- This plot asks: **Do glucose distributions differ depending on measurement context (e.g., pre-breakfast vs pre-supper)?**
+- Differences in centers/spreads are meaningful:
+  - a higher center for pre-supper than pre-breakfast can indicate daytime accumulation of hyperglycemia
+  - wider distributions can indicate greater variability at that time of day
+
+# Step 3: Overall interpretation (what these plots collectively say)
+
+Across the four plots, the major themes to look for are:
+
+- **Context matters:** glucose behavior differs by measurement time (fasting vs later-day).
+- **Group differences:** categorical splits (weekday vs weekend; day-of-week) can reveal shifts in typical glucose levels or variability.
+- **Treatment-response complexity:** insulin dosing relationships with glucose are not simple “more insulin → lower glucose” because dosing decisions are embedded in feedback loops.
+
+# Step 4: Why multivariate visualization matters in EDA
+
+Multivariate visualization is critical in EDA because it:
+
+1. **Reveals conditional structure.** A relationship can look weak overall but strong within subgroups (e.g., weekday vs weekend).
+2. **Identifies interactions and confounding.** In diabetes, insulin doses, meals, activity, and measurement timing interact; looking at one variable alone can be misleading.
+3. **Supports data quality assessment.** Scatter/pairs plots make outliers, impossible values, or logging artifacts visible.
+4. **Guides modeling choices.** Seeing nonlinearity, heteroskedasticity, and clustering helps decide whether linear models are appropriate and what transformations or time-lag features may be needed.
+
+# Step 5: Summary of EDA findings and justification of choices
+
+## Key findings (Patient 01)
+
+- Glucose distributions differ by measurement type (fasting vs other contexts).
+- Day-type (weekday vs weekend) can be associated with differences in the proportion of “hyperglycemic” fasting days.
+- Relationships between insulin totals and glucose are exploratory and likely reflect feedback (dose decisions respond to glucose) rather than simple causality.
+- Missingness is substantial for some measurement types (e.g., pre-lunch glucose), so interpretations must be cautious.
+
+## EDA steps taken (and why)
+
+1. **Reshaped event logs into a daily dataset** to make variables comparable across observations.
+2. **Pairs plot** to scan for relationships/outliers across all quantitative variables at once.
+3. **Four targeted plots** chosen to match variable types:
+   - boxplots for categorical × quantitative
+   - scatterplot for quantitative × quantitative (with color as a third variable)
+   - stacked percent bar for categorical × categorical
+   - density/facets to compare distributional differences across categories
+
+# Step 6: Knitting instructions
+
+- Open this `.Rmd` in RStudio.
+- Install packages if needed:
+
+```{r install, eval=FALSE}
+install.packages(c("dplyr", "tidyr", "lubridate", "ggplot2", "GGally"))
+```
+
+- Click **Knit** to produce HTML or PDF.
+
+# References
+
+- American Diabetes Association Professional Practice Committee for Diabetes. (2026). *Standards of Care in Diabetes—2026*. *Diabetes Care*, 49(Supplement 1). 
+- Tukey, J. W. (1977). *Exploratory Data Analysis*. Addison-Wesley.
+- van Buuren, S. (2018). *Flexible Imputation of Missing Data* (2nd ed.). Chapman & Hall/CRC.

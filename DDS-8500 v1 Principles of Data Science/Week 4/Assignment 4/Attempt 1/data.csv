@@ -1,0 +1,231 @@
+ID,Gender,Age,Height,Weight,Education,Income,MaritalStatus,Employment,Score,Category,Color,Hobby,Happiness,Location
+1,Male,32,178,75,Master's,50000,Married,Employed,7.5,A,Sports,Blue,Reading,8,City
+2,Female,25,165,58,Bachelor's,45000,Single,Unemployed,6.2,B,Music,Green,Traveling,7,Rural
+3,Male,NA,182,80,PhD,70000,Married,Employed,8.9,C,Art,Red,Photography,9,Suburb
+4,Female,29,NA,65,Bachelor's,52000,Single,Employed,7.1,B,Music,Blue,Swimming,6,City
+5,Other,30,165,NA,High School,32000,Single,Unemployed,5.5,A,Sports,Green,Reading,NA,Rural
+6,Male,34,190,90,Master's,60000,Married,Employed,8.2,B,Music,Blue,Traveling,7.5,Suburb
+7,Female,27,158,NA,Bachelor's,42000,Single,Unemployed,NA,A,Art,Green,Swimming,6.5,City
+8,Male,28,178,78,High School,38000,Married,Employed,6.7,A,Sports,Red,Photography,8,Rural
+9,Other,NA,165,56,PhD,55000,Single,Unemployed,7.8,B,Music,Blue,Traveling,8.5,Suburb
+10,Female,26,165,62,NA,48000,Single,Employed,5.9,A,Art,Green,Reading,7,City
+11,Male,32,178,75,Master's,50000,Married,Employed,7.5,A,Sports,Blue,Reading,8,City
+12,Female,25,165,58,Bachelor's,45000,Single,Unemployed,6.2,B,Music,Green,Traveling,7,Rural
+13,Male,,182,80,PhD,70000,Married,Employed,8.9,C,Art,Red,Photography,9,Suburb
+14,Female,29,,65,Bachelor's,52000,Single,Employed,7.1,B,Music,Blue,Swimming,6,City
+15,Other,30,165,,High School,32000,Single,Unemployed,5.5,A,Sports,Green,Reading,,Rural
+16,Male,34,190,90,Master's,60000,Married,Employed,8.2,B,Music,Blue,Traveling,7.5,Suburb
+17,Female,27,158,,Bachelor's,42000,Single,Unemployed,,A,Art,Green,Swimming,6.5,City
+18,Male,28,178,78,High School,38000,Married,Employed,6.7,A,Sports,Red,Photography,8,Rural
+19,Other,,165,56,PhD,55000,Single,Unemployed,7.8,B,Music,Blue,Traveling,8.5,Suburb
+20,Female,26,165,62,,48000,Single,Employed,5.9,A,Art,Green,Reading,7,City
+21,Male,32,178,75,Master's,50000,Married,Employed,7.5,A,Sports,Blue,Reading,8,City
+22,Female,25,165,58,Bachelor's,45000,Single,Unemployed,6.2,B,Music,Green,Traveling,7,Rural
+23,Male,,182,80,PhD,70000,Married,Employed,8.9,C,Art,Red,Photography,9,Suburb
+24,Female,29,,65,Bachelor's,52000,Single,Employed,7.1,B,Music,Blue,Swimming,6,City
+25,Other,30,165,,High School,32000,Single,Unemployed,5.5,A,Sports,Green,Reading,,Rural
+26,Male,34,190,90,Master's,60000,Married,Employed,8.2,B,Music,Blue,Traveling,7.5,Suburb
+27,Female,27,158,,Bachelor's,42000,Single,Unemployed,,A,Art,Green,Swimming,6.5,City
+28,Male,28,178,78,High School,38000,Married,Employed,6.7,A,Sports,Red,Photography,8,Rural
+29,Other,,165,56,PhD,55000,Single,Unemployed,7.8,B,Music,Blue,Traveling,8.5,Suburb
+30,Female,26,165,62,,48000,Single,Employed,5.9,A,Art,Green,Reading,7,City
+31,Female,29,155,54,Master's,55000,Married,Employed,7.3,B,Music,Blue,Swimming,8.2,City
+32,Male,31,180,,Bachelor's,50000,Married,Employed,6.5,A,Art,Green,Reading,8,Rural
+33,Male,32,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+34,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+35,Other,28,185,85,High School,35000,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+36,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+37,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+38,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+39,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+40,Other,28,185,85,High School,35000,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+41,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+42,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+43,Other,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Green,Reading,7,City
+44,Female,28,165,60,High School,42000,Married,Unemployed,5.5,A,Sports,Red,Traveling,8,Rural
+45,Male,30,180,75,Master's,60000,Married,Employed,7.5,C,Music,Blue,Reading,8,City
+46,Male,32,178,75,Master's,50000,Married,Employed,7.5,A,Sports,Blue,Reading,8,City
+47,Female,25,165,58,Bachelor's,45000,Single,Unemployed,6.2,B,Music,Green,Traveling,7,Rural
+48,Male,,182,80,PhD,70000,Married,Employed,8.9,C,Art,Red,Photography,9,Suburb
+49,Female,29,,65,Bachelor's,52000,Single,Employed,7.1,B,Music,Blue,Swimming,6,City
+50,Other,30,165,,High School,32000,Single,Unemployed,5.5,A,Sports,Green,Reading,,Rural
+51,Male,32,178,75,Master's,50000,Married,Employed,7.5,A,Sports,Blue,Reading,8,City
+52,Female,25,165,58,Bachelor's,45000,Single,Unemployed,6.2,B,Music,Green,Traveling,7,Rural
+53,Male,NA,182,80,PhD,70000,Married,Employed,8.9,C,Art,Red,Photography,9,Suburb
+54,Female,29,NA,65,Bachelor's,52000,Single,Employed,7.1,B,Music,Blue,Swimming,6,City
+55,Other,30,165,NA,High School,32000,Single,Unemployed,5.5,A,Sports,Green,Reading,NA,Rural
+56,Male,34,190,90,Master's,60000,Married,Employed,8.2,B,Music,Blue,Traveling,7.5,Suburb
+57,Female,27,158,NA,Bachelor's,42000,Single,Unemployed,NA,A,Art,Green,Swimming,6.5,City
+58,Male,28,178,78,High School,38000,Married,Employed,6.7,A,Sports,Red,Photography,8,Rural
+59,Other,NA,165,56,PhD,55000,Single,Unemployed,7.8,B,Music,Blue,Traveling,8.5,Suburb
+60,Male,28,178,78,High School,38000,Married,Employed,6.7,A,Sports,Red,Photography,8,Rural
+951,Female,,160,55,High School,39000,Married,Employed,6.1,A,Art,Blue,Swimming,7,City
+952,Male,30,180,75,Master's,,Single,Employed,7.5,C,Music,Blue,Reading,8,City
+953,Male,32,178,75,Master's,,Married,Employed,7.5,A,Sports,Blue,Reading,8,City
+954,Female,25,165,58,Bachelor's,45000,Single,,6.2,B,Music,Green,Traveling,7,Rural
+955,Male,,182,80,PhD,,Married,Employed,8.9,C,Art,Red,Photography,9,Suburb
+956,Female,29,,65,Bachelor's,52000,Single,Employed,7.1,B,Music,Blue,Swimming,6,City
+957,Other,30,165,,High School,,Single,Unemployed,5.5,A,Sports,Green,Reading,,Rural
+958,Male,34,190,90,Master's,60000,,Employed,8.2,B,Music,Blue,Traveling,7.5,Suburb
+959,Female,27,158,,Bachelor's,42000,Single,Unemployed,,A,Art,Green,Swimming,6.5,City
+960,Male,28,178,78,High School,38000,,Employed,6.7,A,Sports,Red,Photography,8,Rural
+961,Other,,165,56,PhD,55000,Single,,7.8,B,Music,Blue,Traveling,8.5,Suburb
+962,Female,26,165,62,,48000,Single,Employed,5.9,A,Art,Green,Reading,7,City
+963,Female,29,155,54,Master's,55000,Married,Employed,7.3,B,Music,Blue,Swimming,8.2,City
+964,Male,31,180,,Bachelor's,50000,Married,Employed,6.5,A,Art,Green,Reading,8,Rural
+965,Male,32,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+966,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+967,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+968,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+969,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+970,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+971,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+972,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+973,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+974,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+975,Other,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Green,Reading,7,City
+976,Female,28,165,60,High School,42000,Married,Unemployed,5.5,A,Sports,Red,Traveling,8,Rural
+977,Male,30,180,75,Master's,60000,Married,Employed,7.5,C,Music,Blue,Reading,8,City
+978,Male,32,178,75,Master's,,Married,Employed,7.5,A,Sports,Blue,Reading,8,City
+979,Female,25,165,58,Bachelor's,45000,Single,,6.2,B,Music,Green,Traveling,7,Rural
+980,Male,,182,80,PhD,,Married,Employed,8.9,C,Art,Red,Photography,9,Suburb
+981,Female,29,,65,Bachelor's,52000,Single,Employed,7.1,B,Music,Blue,Swimming,6,City
+982,Other,30,165,,High School,,Single,Unemployed,5.5,A,Sports,Green,Reading,,Rural
+983,Male,34,190,90,Master's,60000,,Employed,8.2,B,Music,Blue,Traveling,7.5,Suburb
+984,Female,27,158,,Bachelor's,42000,Single,Unemployed,,A,Art,Green,Swimming,6.5,City
+985,Male,28,178,78,High School,38000,,Employed,6.7,A,Sports,Red,Photography,8,Rural
+986,Other,,165,56,PhD,55000,Single,,7.8,B,Music,Blue,Traveling,8.5,Suburb
+987,Female,26,165,62,,48000,Single,Employed,5.9,A,Art,Green,Reading,7,City
+988,Female,29,155,54,Master's,55000,Married,Employed,7.3,B,Music,Blue,Swimming,8.2,City
+989,Male,31,180,,Bachelor's,50000,Married,Employed,6.5,A,Art,Green,Reading,8,Rural
+990,Male,32,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+991,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+992,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+993,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+994,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+995,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+996,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+997,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+998,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+999,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1000,Other,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Green,Reading,7,City
+1001,Female,28,165,60,High School,42000,Married,Unemployed,5.5,A,Sports,Red,Traveling,8,Rural
+1002,Male,30,180,75,Master's,60000,Married,Employed,7.5,C,Music,Blue,Reading,8,City
+1003,Male,32,178,75,Master's,,Married,Employed,7.5,A,Sports,Blue,Reading,8,City
+1004,Female,25,165,58,Bachelor's,45000,Single,,6.2,B,Music,Green,Traveling,7,Rural
+1005,Male,,182,80,PhD,,Married,Employed,8.9,C,Art,Red,Photography,9,Suburb
+1006,Female,29,,65,Bachelor's,52000,Single,Employed,7.1,B,Music,Blue,Swimming,6,City
+1007,Other,30,165,,High School,,Single,Unemployed,5.5,A,Sports,Green,Reading,,Rural
+1008,Male,34,190,90,Master's,60000,,Employed,8.2,B,Music,Blue,Traveling,7.5,Suburb
+1009,Female,27,158,,Bachelor's,42000,Single,Unemployed,,A,Art,Green,Swimming,6.5,City
+1010,Male,28,178,78,High School,38000,,Employed,6.7,A,Sports,Red,Photography,8,Rural
+1011,Other,,165,56,PhD,55000,Single,,7.8,B,Music,Blue,Traveling,8.5,Suburb
+1012,Female,26,165,62,,48000,Single,Employed,5.9,A,Art,Green,Reading,7,City
+1013,Female,29,155,54,Master's,55000,Married,Employed,7.3,B,Music,Blue,Swimming,8.2,City
+1014,Male,31,180,,Bachelor's,50000,Married,Employed,6.5,A,Art,Green,Reading,8,Rural
+1015,Male,32,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1016,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1017,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1018,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1019,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1020,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1021,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1022,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1023,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1024,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1025,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1026,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1027,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1028,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1029,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1030,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1031,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1032,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1033,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1034,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1035,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1036,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1037,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1038,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1039,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1040,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1041,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1042,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1043,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1044,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1045,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1046,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1047,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1048,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1049,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1050,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1051,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1052,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1053,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1054,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1055,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1056,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1057,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1058,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1059,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1060,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1061,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1062,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1063,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1064,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1065,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1066,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1067,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1068,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1069,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1070,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1071,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1072,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1073,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1074,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1075,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,
+1076,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1077,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1078,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1079,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1080,Male,29,175,70,PhD,60000,Married,,7.8,C,Sports,Red,Traveling,9,Suburb
+1081,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,,Blue,Reading,7,City
+1082,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1083,Male,30,182,80,,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1084,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1085,Male,29,175,70,PhD,60000,,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1086,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1087,Other,28,185,85,High School,,Single,,5.7,A,Sports,Green,Photography,6,Rural
+1088,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1089,Female,26,160,55,,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1090,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1091,Female,27,168,65,Bachelor's,,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1092,Other,28,185,85,High School,,Single,Unemployed,,A,Sports,Green,Photography,6,Rural
+1093,Male,30,182,80,Master's,65000,Married,Employed,,C,,Red,Traveling,8.5,City
+1094,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1095,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1096,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,,7,City
+1097,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1098,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,,City
+1099,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1100,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,,Traveling,9,Suburb
+1101,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1102,Other,28,185,85,,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1103,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1104,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1105,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1106,Female,27,168,65,Bachelor's,45000,Single,Employed,6.2,,Art,Blue,Reading,7,City
+1107,Other,28,185,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1108,Male,30,182,80,Master's,,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1109,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+1110,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1111,Female,27,168,65,Bachelor's,45000,,Employed,6.2,B,Art,Blue,Reading,7,City
+1112,Male,29,175,70,PhD,60000,Married,Employed,7.8,C,Sports,Red,Traveling,9,Suburb
+1113,Female,27,168,65,,45000,Single,Employed,6.2,B,Art,Blue,Reading,7,City
+1114,Other,28,,85,High School,,Single,Unemployed,5.7,A,Sports,Green,Photography,6,Rural
+1116,Male,30,182,80,Master's,65000,Married,Employed,,C,Music,Red,Traveling,8.5,City
+1117,Female,26,160,55,Bachelor's,48000,Single,Employed,6.1,B,Art,Blue,Swimming,7,Rural
+
+
+
+

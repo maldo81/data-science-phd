@@ -1,0 +1,3 @@
+"Model","Total_Observations","Observations_Used","Observations_Dropped"
+"Single Regression (Income ~ Age)",498,391,107
+"Multiple Regression (Income ~ Age + Gender + Education)",498,368,130

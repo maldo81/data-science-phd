@@ -1,0 +1,428 @@
+---
+title: "Complete EDA + K-Means Clustering for Bankruptcy Status (Signature Assignment)"
+author: "<Your Name>"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+    df_print: kable
+fontsize: 11pt
+geometry: margin=1in
+bibliography: references.bib
+link-citations: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 7,
+  fig.height = 4.5
+)
+
+# Reproducibility
+set.seed(1234)
+```
+
+\newpage
+
+# Executive Summary (Layperson)
+
+This report uses a large U.S. bankruptcy dataset to **clean and prepare financial data**, then applies **k-means clustering (k = 2)** to see whether an *unsupervised* method can separate firms that eventually **failed** from those that remained **alive**. I first perform a complete exploratory data analysis (EDA)—checking data types, data quality, outliers, and distributions—followed by careful preprocessing (winsorization and scaling) and **feature engineering** (a new financial “size” proxy and a within-firm trend feature). Next, I split the data into **training and test sets without leakage** and build a 2-cluster k-means model on training data only. Finally, I interpret the clusters and evaluate performance on the test set using **precision, recall, accuracy, and F1**.
+
+In summary, clustering can highlight broad structure (e.g., firms with different financial profiles), but **bankruptcy prediction is difficult with k-means alone** because bankruptcy is rare and financial ratios can overlap heavily between healthy and distressed firms. This project therefore demonstrates both (1) how to do EDA “soup to nuts” and (2) why unsupervised learning can be a useful baseline but often needs stronger methods (e.g., mixture models for skewed ratios, cost-sensitive classification, or supervised learning) for reliable bankruptcy risk prediction.
+
+\newpage
+
+# 1. Introduction
+
+Corporate bankruptcy prediction is a long-standing applied problem in finance and accounting. Classic work showed that **financial ratios contain predictive information** (e.g., Altman’s Z-Score using discriminant analysis and Ohlson’s logit model) and later research expanded into modern statistical and machine learning approaches. The ongoing practical challenge is that failure events are typically **rare**, financial indicators are often **skewed with extreme outliers**, and the best model depends on the setting and data generating process (Alaka et al., 2018; Altman, 1968; Ohlson, 1980).
+
+From an analytics perspective, **Exploratory Data Analysis (EDA)** provides the foundation for trustworthy modeling—helping identify anomalies, distributional issues, and data preparation needs before fitting any model (Tukey, 1962; Tukey, 1977). This paper follows that philosophy and applies a full EDA workflow to prepare a bankruptcy dataset for a clustering-based “prediction” exercise.
+
+**Goal.** Conduct complete EDA, build a **2-means** clustering model (k = 2) on training data, and evaluate how well cluster membership can be mapped to the firm status label (**alive** vs **failed**) on a withheld test set.
+
+\newpage
+
+# 2. Data and Variable Types
+
+## 2.1 Load Libraries and Data
+
+> **Note:** Place `american_bankruptcy.csv` in the same folder as this `.Rmd`, or edit the `data_path` below.
+
+```{r libraries-data}
+required_pkgs <- c(
+  "tidyverse", "skimr", "janitor", "DescTools", "corrplot", "psych",
+  "ggcorrplot", "caret", "factoextra", "yardstick", "knitr", "kableExtra", "Amelia"
+)
+
+to_install <- setdiff(required_pkgs, rownames(installed.packages()))
+if (length(to_install) > 0) {
+  install.packages(to_install, repos = "https://cloud.r-project.org")
+}
+
+invisible(lapply(required_pkgs, library, character.only = TRUE))
+
+data_path <- "american_bankruptcy.csv"
+df_raw <- read_csv(data_path, show_col_types = FALSE) %>% clean_names()
+```
+
+## 2.2 Structure and Types
+
+```{r structure}
+glimpse(df_raw)
+summary(df_raw$status_label)
+```
+
+### Intended types (interpretation)
+
+* `company_name`: **Identifier** (qualitative nominal)
+* `status_label`: **Outcome label** (alive/failed; qualitative nominal, dichotomous)
+* `year`: time index (quantitative discrete)
+* `x1`–`x18`: numeric financial features (quantitative continuous)
+
+```{r type-fixes}
+df <- df_raw %>%
+  mutate(
+    company_name = as.factor(company_name),
+    status_label = factor(status_label, levels = c("alive", "failed")),
+    year = as.integer(year)
+  )
+
+# quick check
+df %>% count(status_label) %>% mutate(pct = n / sum(n))
+```
+
+\newpage
+
+# 3. Data Quality: Missingness, Outliers, and Anomalies
+
+## 3.1 Missing Data
+
+```{r missingness}
+miss_prop <- sapply(df, function(x) mean(is.na(x)))
+miss_tbl <- tibble(variable = names(miss_prop), missing_prop = as.numeric(miss_prop)) %>%
+  arrange(desc(missing_prop))
+
+kbl(head(miss_tbl, 21), caption = "Missingness by variable (proportion)") %>%
+  kable_classic(full_width = FALSE)
+
+# Visual missing map
+missmap(df, main = "Missingness map (raw data)", col = c("grey90", "steelblue"))
+```
+
+**Interpretation.** If missingness exists, we must handle it carefully to avoid bias and information leakage. Best practice is to decide on missing-data strategy (deletion, single imputation, multiple imputation) based on mechanism assumptions such as MAR (Rubin, 1976; Schafer & Graham, 2002). If the dataset has no missingness, we still document that fact.
+
+## 3.2 Outliers and Distribution Shape
+
+Financial variables frequently show **skewness and extreme values**. Because k-means uses squared Euclidean distances, outliers can dominate cluster formation. We therefore (1) visualize distributions and (2) plan a robust treatment (winsorization) **using training-set thresholds only**.
+
+```{r univariate-plots}
+num_cols <- names(df) %>% keep(~ str_detect(.x, "^x\\d+$"))
+
+# Example: pick 6 variables to visualize
+vars_to_plot <- num_cols[1:6]
+
+df %>%
+  select(all_of(vars_to_plot), status_label) %>%
+  pivot_longer(cols = all_of(vars_to_plot), names_to = "var", values_to = "value") %>%
+  ggplot(aes(x = value, fill = status_label)) +
+  geom_histogram(bins = 50, alpha = 0.6, position = "identity") +
+  facet_wrap(~ var, scales = "free") +
+  labs(title = "Univariate distributions (sample of variables)")
+```
+
+```{r boxplots}
+df %>%
+  select(all_of(vars_to_plot), status_label) %>%
+  pivot_longer(cols = all_of(vars_to_plot), names_to = "var", values_to = "value") %>%
+  ggplot(aes(x = status_label, y = value, fill = status_label)) +
+  geom_boxplot(outlier.alpha = 0.25) +
+  facet_wrap(~ var, scales = "free_y") +
+  coord_flip() +
+  labs(title = "Outlier check via boxplots (sample of variables)")
+```
+
+\newpage
+
+# 4. Feature Engineering (At Least One New Variable)
+
+This dataset contains multiple observations per firm over time. To better align the task with *predicting a firm’s status*, we construct a **company-level** modeling table by selecting each firm’s **most recent year** and engineering time-aware features.
+
+### Feature engineering choices
+
+1. **Size proxy**: `x1_log = log1p(pmax(x1, 0))` to reduce extreme scale effects.
+2. **Trend feature**: `x1_growth = (x1 - lag(x1)) / (|lag(x1)| + 1)` computed within firm over time.
+3. **Indicator**: `has_prior_year` indicates whether a firm has a previous observation.
+
+```{r feature-engineering}
+df_firm <- df %>%
+  arrange(company_name, year) %>%
+  group_by(company_name) %>%
+  mutate(
+    x1_log = log1p(pmax(x1, 0)),
+    x1_growth = (x1 - lag(x1)) / (abs(lag(x1)) + 1),
+    has_prior_year = if_else(is.na(lag(year)), 0L, 1L)
+  ) %>%
+  ungroup() %>%
+  group_by(company_name) %>%
+  slice_max(order_by = year, n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+# Confirm: one row per company
+n_distinct(df_firm$company_name)
+nrow(df_firm)
+
+df_firm %>% count(status_label) %>% mutate(pct = n / sum(n))
+```
+
+\newpage
+
+# 5. Univariate and Multivariate Statistics
+
+## 5.1 Descriptive Statistics (Table)
+
+```{r descriptives}
+num_cols_firm <- names(df_firm) %>% keep(~ str_detect(.x, "^x\\d+$"))
+num_cols_firm <- c(num_cols_firm, "x1_log", "x1_growth", "year")
+
+desc_tbl <- psych::describe(df_firm %>% select(all_of(num_cols_firm)))
+
+kbl(
+  as.data.frame(desc_tbl) %>%
+    rownames_to_column("variable") %>%
+    select(variable, n, mean, sd, min, median, max, skew, kurtosis),
+  digits = 3,
+  caption = "Descriptive statistics (company-level table)"
+) %>% kable_classic(full_width = FALSE)
+```
+
+## 5.2 Correlation Analysis (Numeric)
+
+Because k-means uses distances, high correlations can imply redundant dimensions. We explore correlation structure to understand how variables relate.
+
+```{r correlations}
+cor_mat <- cor(df_firm %>% select(all_of(num_cols_firm)), use = "pairwise.complete.obs")
+
+ggcorrplot(
+  cor_mat,
+  hc.order = TRUE,
+  type = "lower",
+  lab = FALSE,
+  colors = c("red", "white", "green"),
+  title = "Correlation heatmap (company-level features)"
+)
+```
+
+\newpage
+
+# 6. Train/Test Split and Transformations (No Leakage)
+
+## 6.1 Split Strategy
+
+To avoid leakage, we split **after** building a company-level table, so each firm appears in **only one** of training or test sets. We stratify on `status_label` so the minority class remains represented.
+
+```{r split}
+idx <- createDataPartition(df_firm$status_label, p = 0.80, list = FALSE)
+train <- df_firm[idx, ]
+test  <- df_firm[-idx, ]
+
+train %>% count(status_label) %>% mutate(pct = n/sum(n))
+test  %>% count(status_label) %>% mutate(pct = n/sum(n))
+```
+
+## 6.2 Winsorization (Outlier Handling) and Scaling
+
+We winsorize numeric variables using **training percentiles** (1% and 99%). Then we standardize (z-scores) using training means and SDs. Both steps are applied to test using training-derived parameters.
+
+```{r transform}
+feature_cols <- c(num_cols_firm, "has_prior_year")
+
+# Winsor caps from training only
+train_caps <- train %>% select(all_of(feature_cols)) %>%
+  summarise(across(everything(), list(p01 = ~quantile(.x, 0.01, na.rm = TRUE),
+                                     p99 = ~quantile(.x, 0.99, na.rm = TRUE)),
+                   .names = "{.col}_{.fn}"))
+
+cap_var <- function(x, lo, hi) pmin(pmax(x, lo), hi)
+
+apply_caps <- function(d, caps) {
+  out <- d
+  for (v in feature_cols) {
+    lo <- caps[[paste0(v, "_p01")]]
+    hi <- caps[[paste0(v, "_p99")]]
+    out[[v]] <- cap_var(out[[v]], lo, hi)
+  }
+  out
+}
+
+train_w <- apply_caps(train, train_caps)
+test_w  <- apply_caps(test,  train_caps)
+
+# Scale (standardize) using training parameters
+pp <- preProcess(train_w[, feature_cols], method = c("center", "scale"))
+train_x <- predict(pp, train_w[, feature_cols])
+test_x  <- predict(pp, test_w[,  feature_cols])
+
+train_y <- train_w$status_label
+test_y  <- test_w$status_label
+```
+
+\newpage
+
+# 7. Clustering Model: 2-Means (k = 2)
+
+## 7.1 Fit k-means on Training Data
+
+We fit k-means with k = 2. Because k-means can be sensitive to initialization, we set a seed and use multiple random starts.
+
+```{r kmeans-fit}
+km <- kmeans(train_x, centers = 2, nstart = 50)
+table(km$cluster)
+```
+
+## 7.2 Assign Test Observations to Nearest Centroid
+
+Base R’s `kmeans()` does not provide a `predict()` method, so we assign each test row to the nearest centroid in Euclidean distance.
+
+```{r kmeans-predict}
+predict_kmeans <- function(newdata, centers) {
+  # returns cluster index 1..k
+  dists <- sapply(1:nrow(centers), function(j) rowSums((newdata - centers[j, ])^2))
+  max.col(-dists)
+}
+
+test_cluster <- predict_kmeans(test_x, km$centers)
+train_cluster <- km$cluster
+```
+
+## 7.3 Map Clusters to Status Labels (Interpretation)
+
+Clustering produces unlabeled groups. To evaluate as a “predictor,” we map each cluster to a status label using the **training set only**. Because bankruptcy is typically rare, we label the cluster with the **higher failure rate** as `failed`.
+
+```{r map-clusters}
+train_map_tbl <- tibble(cluster = train_cluster, status = train_y) %>%
+  group_by(cluster) %>%
+  summarise(failed_rate = mean(status == "failed"), n = n(), .groups = "drop")
+
+train_map_tbl
+
+failed_cluster <- train_map_tbl %>% arrange(desc(failed_rate)) %>% slice(1) %>% pull(cluster)
+
+map_status <- function(cluster_id) if_else(cluster_id == failed_cluster, "failed", "alive")
+
+train_pred <- factor(map_status(train_cluster), levels = c("alive", "failed"))
+test_pred  <- factor(map_status(test_cluster),  levels = c("alive", "failed"))
+```
+
+\newpage
+
+# 8. Model Evaluation (Test Set)
+
+We evaluate performance using:
+
+* **Precision (PPV):** of those predicted failed, how many were truly failed?
+* **Recall (Sensitivity):** of truly failed, how many did we detect?
+* **Accuracy:** overall correctness.
+* **F1:** harmonic mean of precision and recall.
+
+```{r metrics}
+conf <- table(Predicted = test_pred, Actual = test_y)
+conf
+
+precision <- yardstick::precision_vec(test_y, test_pred, event_level = "second")
+recall    <- yardstick::recall_vec(test_y, test_pred, event_level = "second")
+accuracy  <- yardstick::accuracy_vec(test_y, test_pred)
+f1        <- yardstick::f_meas_vec(test_y, test_pred, event_level = "second")
+
+tibble(
+  metric = c("Precision (PPV)", "Recall (Sensitivity)", "Accuracy", "F1"),
+  value  = c(precision, recall, accuracy, f1)
+) %>%
+  mutate(value = round(value, 4)) %>%
+  kbl(caption = "Test-set performance metrics") %>%
+  kable_classic(full_width = FALSE)
+```
+
+**Interpretation guidance.** With imbalanced outcomes, it is common to see accuracy look deceptively high even when recall is poor (or vice versa). For bankruptcy, recall is often prioritized (missing a true failure can be costly), but precision matters to avoid excessive false alarms.
+
+\newpage
+
+# 9. Cluster Visualization and Interpretation
+
+We visualize clusters using a PCA projection of the standardized training data. This helps interpret whether the two clusters are well separated in reduced dimensions.
+
+```{r cluster-plot}
+fviz_cluster(
+  list(data = train_x, cluster = train_cluster),
+  geom = "point",
+  ellipse.type = "norm",
+  ggtheme = theme_minimal(),
+  main = "K-means clusters (training set; PCA projection)"
+)
+```
+
+## 9.1 Cluster Profiles
+
+We compare the centroid values (in standardized space) and also summarize key variables on the original scale.
+
+```{r cluster-profiles}
+centers <- as.data.frame(km$centers)
+centers$cluster <- factor(1:2)
+
+centers %>%
+  pivot_longer(-cluster, names_to = "feature", values_to = "z_center") %>%
+  group_by(cluster) %>%
+  slice_max(order_by = abs(z_center), n = 8, with_ties = FALSE) %>%
+  arrange(cluster, desc(abs(z_center))) %>%
+  kbl(digits = 3, caption = "Top centroid features by absolute standardized magnitude (per cluster)") %>%
+  kable_classic(full_width = FALSE)
+
+train %>%
+  mutate(cluster = factor(train_cluster)) %>%
+  group_by(cluster) %>%
+  summarise(
+    n = n(),
+    failed_rate = mean(status_label == "failed"),
+    year_mean = mean(year),
+    x1_mean = mean(x1),
+    x1_log_mean = mean(x1_log),
+    x1_growth_mean = mean(x1_growth, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  kbl(digits = 3, caption = "Cluster summaries on selected interpretable features") %>%
+  kable_classic(full_width = FALSE)
+```
+
+\newpage
+
+# 10. Discussion, Limitations, and Future Work
+
+## 10.1 Limitations
+
+1. **K-means assumptions:** K-means favors spherical clusters in Euclidean space and can be sensitive to skew and outliers (Hartigan & Wong, 1979; Jain, 2010).
+2. **Class imbalance:** Bankruptcy is rare; unsupervised clustering is not optimized for minority-class detection, so mapping clusters to labels can yield poor precision or recall depending on the mapping choice.
+3. **Feature meaning:** Variables `x1`–`x18` are treated as numeric financial indicators; interpretability would improve if we had exact accounting definitions.
+4. **Temporal modeling:** We reduced to most recent year to avoid overweighting firms with long histories, but richer time-series approaches could add signal.
+
+## 10.2 Future Work
+
+1. **Alternative clustering:** Consider Gaussian mixture models (for ellipsoidal clusters), robust clustering (k-medoids), or density-based methods; evaluate with silhouette widths (Rousseeuw, 1987) and stability.
+2. **Cost-sensitive / supervised baselines:** Compare with logistic regression (Ohlson, 1980), Z-score style models (Altman, 1968), and modern ML reviewed by Alaka et al. (2018).
+3. **Imbalance handling:** Explore semi-supervised clustering or anomaly detection framing; use precision–recall curves.
+4. **Missing data methods:** If future datasets contain missingness, use principled approaches grounded in MAR/MNAR theory (Rubin, 1976; Schafer & Graham, 2002; Little & Rubin, 2002).
+
+\newpage
+
+# 11. Course Reflection (Single Paragraph)
+
+Over the course, I learned that successful analytics is built on disciplined EDA: correctly identifying data types, auditing missingness and anomalies, understanding distributions and relationships through graphics and statistics, and preventing leakage with proper splitting and training-only preprocessing. I also learned that modeling is not a single “best algorithm” choice; rather, it is a sequence of defensible decisions—feature engineering, transformations, scaling, and evaluation—guided by the problem’s constraints and the data’s behavior. Finally, I learned that communicating results (tables, plots, executive summaries, and limitations) is as important as computing them, because transparent reporting is what makes findings trustworthy and actionable.
+
+\newpage
+
+# References
+
+\bibliography{references.bib}
