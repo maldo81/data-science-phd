@@ -27,6 +27,8 @@ Never reason from code alone.
 
 Detailed rules:
 - `.agents/core/non-negotiables.md`
+- `.agents/security/current.md` (if installed)
+- `.agents/auth-rbac.md` (if installed)
 
 ## Operational Rules
 

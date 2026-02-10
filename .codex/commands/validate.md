@@ -36,5 +36,5 @@ git diff --stat HEAD
 ## 5) Skills validation (if skills changed)
 
 ```bash
-python scripts/qa/validate_skills.py
+py scripts/qa/validate_skills.py
 ```

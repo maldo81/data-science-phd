@@ -1,0 +1,4 @@
+interface:
+  display_name: "Security Guardrails"
+  short_description: "Run secure-by-default checks on risky changes"
+  default_prompt: "Review this change for security risks and recommend concrete mitigations."

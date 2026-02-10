@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Delivery"
+  short_description: "Plan and ship features with clear validation"
+  default_prompt: "Create a decision-complete implementation plan, then execute it with tests and doc updates."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Translate Frontend"
+  short_description: "Maintain English/Spanish frontend translation parity"
+  default_prompt: "Run the frontend translation workflow after UI text changes."

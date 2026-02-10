@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Review"
+  short_description: "Review changes for bugs, risk, and regressions"
+  default_prompt: "Review these changes and report findings by severity with file references."

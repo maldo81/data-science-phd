@@ -1,6 +1,6 @@
 # Skills (`.agents/skills`)
 
-This folder is the canonical source of skills for this project.
+This folder is the canonical source of skills for the project.
 
 ## Required Skill Contract
 
@@ -24,8 +24,16 @@ Recommended:
 Run deterministic validation:
 
 ```bash
-python scripts/qa/validate_skills.py
+py scripts/qa/validate_skills.py
 ```
+
+Then run manual routing checks:
+
+```bash
+cat scripts/qa/manual_skill_eval.md
+```
+
+macOS/Linux: replace `py` with `python3`.
 
 ## Sync to Tool-Specific Paths
 
@@ -36,6 +44,14 @@ Canonical -> mirrors:
 Use:
 
 ```bash
-python scripts/sync-skills.py --dry-run
-python scripts/sync-skills.py
+py scripts/sync-skills.py --dry-run
+py scripts/sync-skills.py
+```
+
+## Pack Notes
+
+Additional skills may be installed from stable or experimental packs via:
+
+```bash
+py .agent-core/scripts/apply_core.py --list-packs
 ```

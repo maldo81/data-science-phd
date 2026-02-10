@@ -30,6 +30,7 @@ If documents conflict:
 - `.agents/codex/` - codex workflow notes
 - `.agents/skills/` - canonical reusable skills
 - `.agents/knowledge/` - writing/sources/retrieval scaffolding
+- `.agents/security/` - optional security baseline docs (pack-dependent)
 
 ## Change Discipline
 
